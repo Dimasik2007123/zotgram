@@ -21,33 +21,30 @@ function Header() {
         </div>
 
         <div className="search__wrapper">
-          <button className="search__button">
+          <Link to="/" className="search__button">
             <img src={union} alt="Поиск" />
-          </button>
+          </Link>
           <input type="text" className="search__input" placeholder="Поиск..." />
         </div>
       </div>
 
       <nav className="header__menu">
-        <button
-          className="header__menu-link"
-          style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}
-        >
+        <Link to="/" className="header__menu-link">
           <img src={house} alt="Посты" className="header__menu-link-image" />
           Посты
-        </button>
-        <button className="header__menu-link">
+        </Link>
+        <Link to="/" className="header__menu-link">
           <img
             src={message}
             alt="Сообщения"
             className="header__menu-link-image"
           />
           Сообщения
-        </button>
-        <button className="header__menu-link">
+        </Link>
+        <Link to="/" className="header__menu-link">
           <img src={people} alt="Друзья" className="header__menu-link-image" />
           Друзья
-        </button>
+        </Link>
       </nav>
 
       <div className="header__right">
@@ -55,9 +52,9 @@ function Header() {
           <img src={plus} alt="Создать пост" />
           Пост
         </button>
-        <button className="header__right-link header__right-link--profile">
+        <Link to="/" className="header__right-link header__right-link--profile">
           ЗЗ
-        </button>
+        </Link>
       </div>
     </header>
   );

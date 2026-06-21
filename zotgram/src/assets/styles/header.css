@@ -118,6 +118,8 @@
   font-family: inherit;
   border: none;
   line-height: 1;
+  text-decoration: none;
+  color: inherit;
 }
 
 .header__menu-link:hover {
@@ -147,8 +149,15 @@
   border: none;
   height: 26px;
   line-height: 1;
+  text-decoration: none;
 }
 
 .header__right-link--profile {
   border-radius: 50%;
+  text-decoration: none;
+}
+
+.header__right-link--profile:visited {
+  color: white;
+  text-decoration: none;
 }
