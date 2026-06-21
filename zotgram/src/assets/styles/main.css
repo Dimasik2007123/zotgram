@@ -1,0 +1,44 @@
+@import "./fonts.css";
+@import "./header.css";
+
+html {
+  box-sizing: border-box;
+  scrollbar-gutter: stable;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+p {
+  font-weight: 400;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  font-family: "Nunito Sans", system-ui, sans-serif;
+  font-weight: 400;
+  background-color: #fefefe;
+  height: 100%;
+}
+
+.header__menu-link,
+.header__right-link,
+button {
+  font-family: "Nunito Sans", system-ui, sans-serif;
+}

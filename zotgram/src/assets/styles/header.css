@@ -1,0 +1,154 @@
+.header {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0 10px;
+  box-sizing: border-box;
+  background-color: aliceblue;
+  position: relative;
+  height: 48px;
+}
+
+.header__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo__wrapper {
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+}
+
+.logo__image {
+  width: 32px;
+  height: 32px;
+  display: block;
+  scale: 2;
+  overflow: hidden;
+}
+
+.search__wrapper {
+  display: flex;
+  align-items: center;
+  background: rgb(241, 244, 248);
+  border-radius: 20px;
+  padding: 0 5px;
+  height: 30px;
+  width: 200px;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
+}
+
+.search__wrapper:hover {
+  background: #e4e6eb;
+}
+
+.search__wrapper:focus-within {
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+}
+
+.search__input {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 0;
+  line-height: 1;
+}
+
+.search__input::placeholder {
+  color: #8a8d91;
+}
+
+.search__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.search__button img {
+  width: 18px;
+  height: 18px;
+  opacity: 0.6;
+  display: block;
+}
+
+.search__button:hover img {
+  opacity: 1;
+}
+
+.header__menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.header__menu-link {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  align-items: center;
+  border-radius: 20px;
+  background: transparent;
+  transition: background 0.2s;
+  height: 26px;
+  opacity: 0.8;
+  font-family: inherit;
+  border: none;
+  line-height: 1;
+}
+
+.header__menu-link:hover {
+  background-color: #d2d2d2;
+}
+
+.header__menu-link-image {
+  width: 20px;
+}
+
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header__right-link {
+  display: flex;
+  gap: 6px;
+  padding: 2px 6px;
+  align-items: center;
+  border-radius: 20px;
+  background: #4a6cf7;
+  color: white;
+  transition: background 0.2s;
+  opacity: 1;
+  border: none;
+  height: 26px;
+  line-height: 1;
+}
+
+.header__right-link--profile {
+  border-radius: 50%;
+}
