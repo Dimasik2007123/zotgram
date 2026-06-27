@@ -1,0 +1,73 @@
+/* pages/LoginYandex.css */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #f0f2f5;
+  padding: 20px;
+  margin: 0;
+}
+
+.login-container {
+  background: white;
+  padding: 48px 40px;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.login-header h1 {
+  color: #4a6cf7;
+  margin: 0 0 4px 0;
+  font-size: 28px;
+}
+
+.login-header p {
+  color: #8a8d91;
+  margin: 0 0 24px 0;
+  font-size: 14px;
+}
+
+.login-error {
+  background: #fee;
+  color: #c00;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+/* Кнопка Яндекс */
+.yandex-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px;
+  background: #1a1a1a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+
+.yandex-login-btn:hover:not(:disabled) {
+  background: #333;
+}
+
+.yandex-login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.yandex-login-btn svg {
+  flex-shrink: 0;
+}

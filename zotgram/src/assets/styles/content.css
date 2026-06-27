@@ -1,0 +1,40 @@
+.content {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.content__main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.content__main::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content__main::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.content__main::-webkit-scrollbar-thumb {
+  background: #cdcdcd;
+  border-radius: 3px;
+}
+
+.content__main::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
+}

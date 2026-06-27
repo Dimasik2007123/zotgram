@@ -9,6 +9,7 @@ import plus from "../assets/images/plus.svg";
 
 function Header() {
   //const [activePage, setActivePage] = useState(null);
+  const user = localStorage.getItem("user");
 
   return (
     <header className="header">
@@ -48,12 +49,15 @@ function Header() {
       </nav>
 
       <div className="header__right">
-        <button className="header__right-link">
+        <button className="header__right-link header__right-button">
           <img src={plus} alt="Создать пост" />
           Пост
         </button>
-        <Link to="/" className="header__right-link header__right-link--profile">
-          ЗЗ
+        <Link to="/" className="header__right-link link-profile">
+          {user
+            ? JSON.parse(user).name.charAt(0) +
+              JSON.parse(user).lastname.charAt(0)
+            : "П"}
         </Link>
       </div>
     </header>
