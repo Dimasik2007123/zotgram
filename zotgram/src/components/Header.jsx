@@ -7,7 +7,7 @@ import people from "../assets/images/people.svg";
 import plus from "../assets/images/plus.svg";
 //import { useState } from "react";
 
-function Header() {
+function Header({ onOpenModal }) {
   //const [activePage, setActivePage] = useState(null);
   const user = localStorage.getItem("user");
 
@@ -49,7 +49,7 @@ function Header() {
       </nav>
 
       <div className="header__right">
-        <button className="header__right-link header__right-button">
+        <button className="header__right-link" onClick={onOpenModal}>
           <img src={plus} alt="Создать пост" />
           Пост
         </button>

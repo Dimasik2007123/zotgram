@@ -7,11 +7,13 @@ import { useNavigate, Navigate } from "react-router-dom"; // ← добавит�
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import Content from "./components/Content";
+import CreatePostModal from "./components/CreatePostModal";
 
 function App() {
   const navigate = useNavigate();
   //const location = useLocation();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [user, setUser] = useState(() => {
     // Потом localStorage
@@ -37,6 +39,11 @@ function App() {
     navigate("/login");
   };
 
+  const handlePostSubmit = (newPost) => {
+    console.log("Новый пост:", newPost);
+    // здесь добавишь пост в ленту
+  };
+
   if (loading) {
     return <div className="loading-screen">Загрузка...</div>;
   }
@@ -47,9 +54,18 @@ function App() {
 
   return (
     <div className="app">
-      <Header onLogout={handleLogout} />
+      <Header
+        onLogout={handleLogout}
+        onOpenModal={() => setIsModalOpen(true)}
+      />
       <Content />
-      {isMobile && <Footer />}
+      {isMobile && <Footer onOpenModal={() => setIsModalOpen(true)} />}
+
+      <CreatePostModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onPostSubmit={handlePostSubmit}
+      />
     </div>
   );
 }

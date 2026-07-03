@@ -1,0 +1,171 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: fadeUp 0.25s ease;
+}
+
+.create-post__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #cdcdcdde;
+  margin-left: -24px;
+  padding-left: 24px;
+  margin-right: -24px;
+  padding-right: 24px;
+}
+
+.create-post__header p {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.create-post__close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #888;
+  cursor: pointer;
+}
+
+.create-post__author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.create-post__author-avatar {
+  display: flex;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  background: #4a6cf7;
+  color: white;
+  transition: background 0.2s;
+  opacity: 1;
+  border: none;
+  height: 40px;
+  width: 40px;
+  text-decoration: none;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.create-post__author-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.create-post__author-infodesc {
+  font-size: 12px;
+  color: #888;
+}
+
+.create-post__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.create-post__input {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  min-height: 80px;
+}
+
+.create-post__image-preview {
+  position: relative;
+}
+
+.create-post__image-preview img {
+  width: 100%;
+  max-height: 250px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.create-post__image-remove {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 8px;
+  right: 8px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.create-post__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.create-post__attach-btn {
+  padding: 6px 14px;
+  border: 1px solid #e4e6eb;
+  border-radius: 20px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+
+.create-post__attach-btn:hover {
+  background: #f0f2f5;
+}
+
+.create-post__submit-btn {
+  padding: 8px 24px;
+  border: none;
+  border-radius: 20px;
+  background: #4a6cf7;
+  color: white;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.create-post__submit-btn:hover:not(:disabled) {
+  background: #3a5bd9;
+}
+
+.create-post__submit-btn:disabled {
+  background: #b0b3b8;
+  cursor: not-allowed;
+}

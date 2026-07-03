@@ -10,6 +10,7 @@
   background-color: aliceblue;
   position: relative;
   height: 48px;
+  border-bottom: 1px solid #cdcdcdde;
 }
 
 .header__left {
@@ -141,6 +142,7 @@
   gap: 6px;
   padding: 0px 6px;
   align-items: center;
+  justify-content: center;
   border-radius: 20px;
   background: #4a6cf7;
   color: white;
@@ -148,9 +150,9 @@
   opacity: 1;
   border: none;
   height: 30px;
-  line-height: 1;
   text-decoration: none;
   font-family: inherit;
+  position: relative;
 }
 
 .header__right-link:hover {

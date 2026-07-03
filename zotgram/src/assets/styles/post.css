@@ -1,0 +1,101 @@
+.post {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 0.8px solid rgba(0, 0, 0, 0.08);
+  border-radius: 15px;
+  padding: 20px;
+  margin: 0;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.post__author {
+  display: flex;
+  flex-direction: row;
+}
+
+.post__user-info {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.post__user-infoname {
+  font-weight: 700;
+}
+
+.post__user-infodate {
+  opacity: 0.5;
+}
+
+.post__content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  position: relative;
+}
+
+.post__content-text {
+  font-size: 18px;
+  word-wrap: break-word;
+}
+
+.post__content-image-block {
+  width: 100%;
+  max-width: 100%;
+}
+
+.post__content-image {
+  width: 100%;
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.post__stats {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin-top: 15px;
+}
+
+.post__stats-likes,
+.post__stats-comments {
+  opacity: 0.5;
+  font-size: 20px;
+}
+
+.post__buttons {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 5px;
+}
+
+.post__buttons-item {
+  flex: 1;
+  background: inherit;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 16px;
+  gap: 5px;
+  opacity: 0.8;
+  transition: background 0.2s;
+  border-radius: 20px;
+}
+
+.post__buttons-item:hover {
+  background-color: #d2d2d2;
+}
+
+.post__buttons-item-image {
+  width: 20px;
+  transition: all 0.2s;
+}

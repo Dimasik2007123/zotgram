@@ -1,10 +1,14 @@
 @import "./fonts.css";
+@import "./animations.css";
 @import "./header.css";
 @import "./leftBar.css";
 @import "./footer.css";
 @import "./login.css";
 @import "./content.css";
 @import "./feed.css";
+@import "./comments.css";
+@import "./post.css";
+@import "./createPostModal.css";
 
 html {
   box-sizing: border-box;
@@ -48,4 +52,11 @@ body {
   font-weight: 400;
   background-color: #fefefe;
   height: 100%;
+}
+
+.divisor {
+  height: 0px;
+  border: 1px solid #cdcdcdde;
+  margin-bottom: 10px;
+  transform: scaleY(0.5);
 }

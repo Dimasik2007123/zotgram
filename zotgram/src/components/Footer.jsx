@@ -4,7 +4,7 @@ import message from "../assets/images/message.svg";
 import people from "../assets/images/people.svg";
 import plus from "../assets/images/plus.svg";
 
-function Footer() {
+function Footer({ onOpenModal }) {
   const navigate = useNavigate();
 
   return (
@@ -21,7 +21,7 @@ function Footer() {
         <img src={people} alt="Друзья" className="footer__image" />
         Друзья
       </button>
-      <button className="footer__button">
+      <button className="footer__button" onClick={onOpenModal}>
         <img
           src={plus}
           alt="Создать пост"

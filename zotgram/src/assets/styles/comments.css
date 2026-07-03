@@ -1,0 +1,125 @@
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  width: 100%;
+  margin: 10px -20px 0 -20px;
+  padding: 15px 20px 20px 20px;
+  border-top: 1px solid #cdcdcdde;
+  background-color: #f6f7f7;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+
+.comments__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.comments__empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 50px;
+  font-size: 18px;
+  color: #555555;
+}
+
+.comments__item {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%;
+}
+
+.comments__avatar {
+  display: flex;
+  padding: 0px 0px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #4a6cf7;
+  color: white;
+  transition: background 0.2s;
+  opacity: 1;
+  border: none;
+  height: 30px;
+  width: 30px;
+  line-height: 1;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.comments__body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  width: 90%;
+}
+
+.comments__name {
+  font-weight: 600;
+}
+
+.comments__form {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%;
+  position: relative;
+}
+
+.comments__input {
+  width: 100%;
+  padding: 5px 44px 5px 10px;
+  border: 1.5px solid #e4e6eb;
+  border-radius: 20px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  background: #f0f2f5;
+  box-sizing: border-box;
+  width: 95%;
+}
+
+.comments__input:focus {
+  border-color: #4a6cf7;
+  background: #ffffff;
+}
+
+.comments__send {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-top: -1px;
+  background: inherit;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  padding: 0;
+}
+
+.comments__send img {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.comments__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
