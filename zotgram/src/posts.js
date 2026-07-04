@@ -3,7 +3,7 @@
 export const posts = [
   {
     id: 1,
-    userId: 1,
+    userId: "1",
     firstName: "Анна",
     lastName: "Кузнецова",
     avatar: "https://i.pravatar.cc/150?img=1",
@@ -15,7 +15,7 @@ export const posts = [
     comments: [
       {
         id: 1,
-        userId: 5,
+        userId: "5",
         firstName: "Максим",
         lastName: "Соколов",
         text: "Отличная идея! Давно пора обновить навигацию. Я могу помочь с UX-исследованиями.",
@@ -23,9 +23,17 @@ export const posts = [
       },
       {
         id: 2,
-        userId: 8,
+        userId: "8",
         firstName: "Елена",
         lastName: "Морозова",
+        text: "А когда планируете показать прототип? Очень интересно посмотреть!",
+        date: "2024-01-15T11:00:00Z",
+      },
+      {
+        id: 99,
+        userId: "1047684395",
+        firstName: "Дмитрий",
+        lastName: "Зотеев",
         text: "А когда планируете показать прототип? Очень интересно посмотреть!",
         date: "2024-01-15T11:00:00Z",
       },
@@ -33,7 +41,7 @@ export const posts = [
   },
   {
     id: 2,
-    userId: 2,
+    userId: "2",
     firstName: "Иван",
     lastName: "Петров",
     avatar: "https://i.pravatar.cc/150?img=2",
@@ -44,7 +52,7 @@ export const posts = [
     comments: [
       {
         id: 3,
-        userId: 3,
+        userId: "3",
         firstName: "Ольга",
         lastName: "Иванова",
         text: "40% - это мощный результат! Поздравляю! Расскажи, что именно оптимизировал?",
@@ -54,7 +62,7 @@ export const posts = [
   },
   {
     id: 3,
-    userId: 3,
+    userId: "3",
     firstName: "Ольга",
     lastName: "Иванова",
     avatar: "https://i.pravatar.cc/150?img=3",
@@ -66,7 +74,7 @@ export const posts = [
     comments: [
       {
         id: 4,
-        userId: 6,
+        userId: "6",
         firstName: "Артём",
         lastName: "Смирнов",
         text: "Обязательно приду! Очень актуальная тема. У нас как раз сейчас реорганизуем компонентную структуру.",
@@ -74,7 +82,7 @@ export const posts = [
       },
       {
         id: 5,
-        userId: 9,
+        userId: "9",
         firstName: "Наталья",
         lastName: "Козлова",
         text: "А можно будет записать воркшоп? Я в тот день буду в командировке, но очень хочу послушать!",
@@ -84,7 +92,7 @@ export const posts = [
   },
   {
     id: 4,
-    userId: 4,
+    userId: "4",
     firstName: "Сергей",
     lastName: "Михайлов",
     avatar: "https://i.pravatar.cc/150?img=4",
@@ -95,7 +103,7 @@ export const posts = [
     comments: [
       {
         id: 6,
-        userId: 10,
+        userId: "10",
         firstName: "Дмитрий",
         lastName: "Захаров",
         text: "А как можно отправить резюме?",
@@ -105,7 +113,7 @@ export const posts = [
   },
   {
     id: 5,
-    userId: 5,
+    userId: "5",
     firstName: "Максим",
     lastName: "Соколов",
     avatar: "https://i.pravatar.cc/150?img=5",
@@ -120,7 +128,7 @@ export const posts = [
     comments: [
       {
         id: 7,
-        userId: 2,
+        userId: "2",
         firstName: "Иван",
         lastName: "Петров",
         text: "Классный инсайт! Мы тоже заметили эту проблему. Давайте скооперируемся и сделаем общий поиск по всем системам.",
@@ -130,9 +138,9 @@ export const posts = [
   },
   {
     id: 6,
-    userId: 6,
-    firstName: "Артём",
-    lastName: "Смирнов",
+    userId: "6",
+    firstName: "Елена",
+    lastName: "Морозова",
     avatar: "https://i.pravatar.cc/150?img=6",
     date: "2024-01-11T08:30:00Z",
     text: "Ура! Мы запустили новый корпоративный портал! Теперь все новости, документы и календарь доступны в одном месте. В ближайшее время добавим интеграцию с Jira и Confluence. Очень жду обратной связи от коллег. Если кто-то найдёт баги или неудобства - создавайте тикеты в специальном чате.",
@@ -142,7 +150,7 @@ export const posts = [
     comments: [
       {
         id: 8,
-        userId: 7,
+        userId: "7",
         firstName: "Алексей",
         lastName: "Фёдоров",
         text: "Круто! Портал уже работает стабильно. Единственное, хотелось бы тёмную тему добавить :)",
@@ -152,9 +160,9 @@ export const posts = [
   },
   {
     id: 7,
-    userId: 7,
-    firstName: "Алексей",
-    lastName: "Фёдоров",
+    userId: "7",
+    firstName: "Артем",
+    lastName: "Смирнов",
     avatar: "https://i.pravatar.cc/150?img=7",
     date: "2024-01-10T13:45:00Z",
     text: "Решил поделиться своим личным проектом — написал небольшой бот для Slack, который анализирует настроение команды по сообщениям. Пока на начальной стадии, но уже показывает интересные результаты. Если хотите попробовать — могу дать доступ к бета-версии. Код на Python, может быть, вместе доработаем его до полноценного продукта.",
@@ -164,9 +172,9 @@ export const posts = [
   },
   {
     id: 8,
-    userId: 8,
-    firstName: "Елена",
-    lastName: "Морозова",
+    userId: "8",
+    firstName: "Наталья",
+    lastName: "Козлова",
     avatar: "https://i.pravatar.cc/150?img=8",
     date: "2024-01-09T17:00:00Z",
     text: null,
@@ -176,7 +184,7 @@ export const posts = [
     comments: [
       {
         id: 9,
-        userId: 4,
+        userId: "4",
         firstName: "Сергей",
         lastName: "Михайлов",
         text: "Отличная новость! Обязательно приду. Успели интегрироваться с нашей системой?",
@@ -186,9 +194,9 @@ export const posts = [
   },
   {
     id: 9,
-    userId: 9,
-    firstName: "Наталья",
-    lastName: "Козлова",
+    userId: "9",
+    firstName: "Алексей",
+    lastName: "Федоров",
     avatar: "https://i.pravatar.cc/150?img=9",
     date: "2024-01-08T10:00:00Z",
     text: "Коллеги, обратите внимание на новый дизайн нашего логотипа! Мы обновили бренд, чтобы он лучше отражал ценности компании. Теперь он более современный и минималистичный. Какие впечатления? Всем, кто хочет оставить комментарий — милости прошу в общий чат. Ваше мнение очень важно для нас!",
@@ -198,7 +206,7 @@ export const posts = [
     comments: [
       {
         id: 10,
-        userId: 5,
+        userId: "5",
         firstName: "Максим",
         lastName: "Соколов",
         text: "Мне нравится! Выглядит свежо. А какие цвета использовали?",
@@ -208,7 +216,7 @@ export const posts = [
   },
   {
     id: 10,
-    userId: 10,
+    userId: "10",
     firstName: "Дмитрий",
     lastName: "Захаров",
     avatar: "https://i.pravatar.cc/150?img=10",
@@ -222,10 +230,9 @@ export const posts = [
       "https://img.freepik.com/premium-vector/mountain-river_1280033-3676.jpg?semt=ais_incoming&w=740&q=80",
     comments: [],
   },
-
   {
     id: 11,
-    userId: 1047684395,
+    userId: "1047684395",
     firstName: "Дмитрий",
     lastName: "Зотеев",
     avatar: "https://i.pravatar.cc/150?img=1",
@@ -236,16 +243,16 @@ export const posts = [
       "https://img.freepik.com/premium-vector/mountain-river_1280033-3676.jpg?semt=ais_incoming&w=740&q=80",
     comments: [
       {
-        id: 1,
-        userId: 5,
+        id: 11,
+        userId: "5",
         firstName: "Максим",
         lastName: "Соколов",
         text: "Отличная идея! Давно пора обновить навигацию. Я могу помочь с UX-исследованиями.",
         date: "2024-01-15T10:45:00Z",
       },
       {
-        id: 2,
-        userId: 8,
+        id: 12,
+        userId: "8",
         firstName: "Елена",
         lastName: "Морозова",
         text: "А когда планируете показать прототип? Очень интересно посмотреть!",

@@ -6,6 +6,7 @@ import share from "../assets/images/share.svg";
 import { useState } from "react";
 import Comments from "./Comments";
 import getUserColor from "../utils/getUserColor";
+import users from "../users";
 
 function Post({ post, showActivity = true }) {
   //const user = localStorage.getItem("user");
@@ -133,6 +134,14 @@ function Post({ post, showActivity = true }) {
     return `${count} комментариев`;
   };
 
+  const getUserData = (userId) => {
+    return users.find((u) => String(u.id) === String(userId));
+  };
+
+  const user = getUserData(post.userId);
+  const firstName = user?.name || "Пользователь";
+  const lastName = user?.lastname || "";
+
   return (
     <div
       className="post"
@@ -145,13 +154,13 @@ function Post({ post, showActivity = true }) {
             className="leftbar__link link-profile link-profile--big"
             style={{ background: getUserColor(post.userId) }}
           >
-            {post.firstName && post.lastName
-              ? post.firstName.charAt(0) + post.lastName.charAt(0)
+            {firstName && lastName
+              ? firstName.charAt(0) + lastName.charAt(0)
               : "П"}
           </Link>
           <div className="post__user-infotext">
             <div className="post__user-infoname">
-              {post.firstName || "Пользователь"} {post.lastName || ""}
+              {firstName || "Пользователь"} {lastName || ""}
             </div>
             <div className="post__user-infodate">{formatDate(post.date)}</div>
           </div>

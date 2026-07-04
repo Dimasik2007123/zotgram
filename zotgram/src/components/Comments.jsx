@@ -2,6 +2,7 @@ import send from "../assets/images/send.svg";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import getUserColor from "../utils/getUserColor";
+import users from "../users";
 
 function Comments({ comments, postId, onAddComment }) {
   const [newComment, setNewComment] = useState("");
@@ -11,16 +12,20 @@ function Comments({ comments, postId, onAddComment }) {
     e.preventDefault();
     if (newComment.trim() === "") return;
 
+    //const user = users.find((u) => String(u.id) === String(currentUser.id));
+
     const comment = {
       id: crypto.randomUUID(),
       userId: currentUser.id || 1,
-      firstName: currentUser.name || "Пользователь",
-      lastName: currentUser.lastname || "",
       text: newComment.trim(),
     };
 
     onAddComment(postId, comment);
     setNewComment("");
+  };
+
+  const getUserData = (userId) => {
+    return users.find((u) => String(u.id) === String(userId));
   };
 
   return (
@@ -29,25 +34,57 @@ function Comments({ comments, postId, onAddComment }) {
         {comments.length === 0 ? (
           <p className="comments__empty">Нет комментариев</p>
         ) : (
-          comments.map((comment) => (
-            <div key={comment.id} className="comments__item">
-              <Link
-                to={`/profile/${comment.userId}`}
-                className="comments__avatar"
-                style={{ background: getUserColor(comment.userId) }}
-              >
-                {comment.firstName && comment.lastName
-                  ? comment.firstName.charAt(0) + comment.lastName.charAt(0)
-                  : "П"}
-              </Link>
-              <div className="comments__body">
-                <div className="comments__name">
-                  {comment.firstName || "Пользователь"} {comment.lastName || ""}
+          comments.map((comment) => {
+            const isMyComment =
+              String(comment.userId) === String(currentUser.id);
+
+            const user = getUserData(comment.userId);
+
+            const firstName = user?.name || "Пользователь";
+            const lastName = user?.lastname || "";
+
+            if (!isMyComment) {
+              return (
+                <div key={comment.id} className="comments__item">
+                  <Link
+                    to={`/profile/${comment.userId}`}
+                    className="comments__avatar"
+                    style={{ background: getUserColor(comment.userId) }}
+                  >
+                    {firstName && lastName
+                      ? firstName.charAt(0) + lastName.charAt(0)
+                      : "П"}
+                  </Link>
+                  <div className="comments__body">
+                    <div className="comments__name">
+                      {firstName || "Пользователь"} {lastName || ""}
+                    </div>
+                    <div className="comments__text">{comment.text}</div>
+                  </div>
                 </div>
-                <div className="comments__text">{comment.text}</div>
-              </div>
-            </div>
-          ))
+              );
+            } else {
+              return (
+                <div key={comment.id} className="comments__item--my">
+                  <div className="comments__body--my">
+                    <div className="comments__name">
+                      {firstName || "Пользователь"} {lastName || ""}
+                    </div>
+                    <div className="comments__text">{comment.text}</div>
+                  </div>
+                  <Link
+                    to={`/profile/${comment.userId}`}
+                    className="comments__avatar"
+                    style={{ background: getUserColor(comment.userId) }}
+                  >
+                    {firstName && lastName
+                      ? firstName.charAt(0) + lastName.charAt(0)
+                      : "П"}
+                  </Link>
+                </div>
+              );
+            }
+          })
         )}
       </div>
 

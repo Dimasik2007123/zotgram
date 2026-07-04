@@ -94,7 +94,7 @@ export const users = [
     bio: "Product Manager. Люблю превращать идеи в продукты, которыми пользуются люди.",
     avatar: "https://i.pravatar.cc/150?img=6",
     avatarColor: "#FF69B4",
-    followers: ["2", "5"],
+    followers: ["2", "5", "1047684395"],
     following: ["1047684395", "3"],
   },
   {
@@ -107,7 +107,7 @@ export const users = [
     birthDate: "1989-04-18",
     bio: "Mobile-разработчик. Пишу на React Native, делаю мобильные приложения.",
     avatar: "https://i.pravatar.cc/150?img=7",
-    avatarColr: "#1E90FF",
+    avatarColor: "#1E90FF",
     followers: ["3", "1047684395"],
     following: ["2", "4"],
   },
