@@ -1,6 +1,7 @@
 import send from "../assets/images/send.svg";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import getUserColor from "../utils/getUserColor";
 
 function Comments({ comments, postId, onAddComment }) {
   const [newComment, setNewComment] = useState("");
@@ -30,7 +31,11 @@ function Comments({ comments, postId, onAddComment }) {
         ) : (
           comments.map((comment) => (
             <div key={comment.id} className="comments__item">
-              <Link to="/" className="comments__avatar">
+              <Link
+                to={`/profile/${comment.userId}`}
+                className="comments__avatar"
+                style={{ background: getUserColor(comment.userId) }}
+              >
                 {comment.firstName && comment.lastName
                   ? comment.firstName.charAt(0) + comment.lastName.charAt(0)
                   : "П"}
@@ -47,7 +52,11 @@ function Comments({ comments, postId, onAddComment }) {
       </div>
 
       <form className="comments__form" onSubmit={handleSubmit}>
-        <Link to="/" className="comments__avatar">
+        <Link
+          to={`/profile/${currentUser.id}`}
+          style={{ background: getUserColor(currentUser.id) }}
+          className="comments__avatar"
+        >
           {currentUser.name
             ? currentUser.name.charAt(0) +
               (currentUser.lastname?.charAt(0) || "")

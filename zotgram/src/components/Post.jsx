@@ -5,8 +5,9 @@ import comments from "../assets/images/comment.svg";
 import share from "../assets/images/share.svg";
 import { useState } from "react";
 import Comments from "./Comments";
+import getUserColor from "../utils/getUserColor";
 
-function Post({ post }) {
+function Post({ post, showActivity = true }) {
   //const user = localStorage.getItem("user");
   const [likes, setLikes] = useState(post.likes || []);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
@@ -139,7 +140,11 @@ function Post({ post }) {
     >
       <div className="post__author">
         <div className="post__user-info">
-          <Link to="/" className="leftbar__link link-profile link-profile--big">
+          <Link
+            to={`/profile/${post.userId}`}
+            className="leftbar__link link-profile link-profile--big"
+            style={{ background: getUserColor(post.userId) }}
+          >
             {post.firstName && post.lastName
               ? post.firstName.charAt(0) + post.lastName.charAt(0)
               : "П"}
@@ -174,35 +179,53 @@ function Post({ post }) {
 
       <div className="divisor"></div>
 
-      <div className="post__buttons">
-        <button className="post__buttons-item" onClick={handleLike}>
-          <img
-            src={isLiked ? likeFilled : like}
-            alt="Лайк"
-            className="post__buttons-item-image"
-          />
-          Лайк
-        </button>
-        <button
-          className="post__buttons-item"
-          onClick={() => setIsCommentsOpen(!isCommentsOpen)}
-        >
-          <img
-            src={comments}
-            alt="Комментарии"
-            className="post__buttons-item-image"
-          />
-          Комментарии
-        </button>
-        <button className="post__buttons-item">
-          <img
-            src={share}
-            alt="Поделиться"
-            className="post__buttons-item-image"
-          />
-          Поделиться
-        </button>
-      </div>
+      {showActivity ? (
+        <>
+          <div className="post__buttons">
+            <button className="post__buttons-item" onClick={handleLike}>
+              <img
+                src={isLiked ? likeFilled : like}
+                alt="Лайк"
+                className="post__buttons-item-image"
+              />
+              Лайк
+            </button>
+            <button
+              className="post__buttons-item"
+              onClick={() => setIsCommentsOpen(!isCommentsOpen)}
+            >
+              <img
+                src={comments}
+                alt="Комментарии"
+                className="post__buttons-item-image"
+              />
+              Комментарии
+            </button>
+            <button className="post__buttons-item">
+              <img
+                src={share}
+                alt="Поделиться"
+                className="post__buttons-item-image"
+              />
+              Поделиться
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="post__buttons">
+          <button
+            className="post__buttons-item"
+            onClick={() => setIsCommentsOpen(!isCommentsOpen)}
+          >
+            <img
+              src={comments}
+              alt="Комментарии"
+              className="post__buttons-item-image"
+            />
+            Комментарии
+          </button>
+        </div>
+      )}
 
       {isCommentsOpen && (
         <Comments

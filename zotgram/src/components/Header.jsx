@@ -6,6 +6,7 @@ import message from "../assets/images/message.svg";
 import people from "../assets/images/people.svg";
 import plus from "../assets/images/plus.svg";
 //import { useState } from "react";
+import getUserColor from "../utils/getUserColor";
 
 function Header({ onOpenModal }) {
   //const [activePage, setActivePage] = useState(null);
@@ -53,7 +54,11 @@ function Header({ onOpenModal }) {
           <img src={plus} alt="Создать пост" />
           Пост
         </button>
-        <Link to="/" className="header__right-link link-profile">
+        <Link
+          to={`/profile/${user ? JSON.parse(user).id : ""}`}
+          className="header__right-link link-profile"
+          style={{ background: getUserColor(user ? JSON.parse(user).id : "") }}
+        >
           {user
             ? JSON.parse(user).name.charAt(0) +
               JSON.parse(user).lastname.charAt(0)

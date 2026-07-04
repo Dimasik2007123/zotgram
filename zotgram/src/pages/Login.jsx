@@ -7,13 +7,11 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ===== ФУНКЦИЯ ОБРАБОТКИ КОДА (объявляем ДО useEffect) =====
   const handleYandexCallback = async (code) => {
     setLoading(true);
     setError("");
 
     try {
-      // 1. Обмениваем код на токен
       const tokenResponse = await fetch("https://oauth.yandex.ru/token", {
         method: "POST",
         headers: {
@@ -37,7 +35,6 @@ function Login() {
       const tokenData = await tokenResponse.json();
       const accessToken = tokenData.access_token;
 
-      // 2. Получаем данные пользователя
       const userResponse = await fetch(
         "https://login.yandex.ru/info?format=json",
         {
@@ -53,7 +50,6 @@ function Login() {
 
       const yandexUser = await userResponse.json();
 
-      // 3. Формируем данные пользователя
       const userData = {
         id: yandexUser.id,
         name:
@@ -64,12 +60,9 @@ function Login() {
         login: yandexUser.login || "",
       };
 
-      // 4. Сохраняем пользователя
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("yandex_token", accessToken);
 
-      // 5. Вход выполнен
-      // onLogin(userData);
       navigate("/", { state: { user: userData } });
     } catch (error) {
       console.error("Ошибка авторизации через Яндекс:", error);
@@ -78,7 +71,6 @@ function Login() {
     }
   };
 
-  // ===== ЭФФЕКТ: проверяем код в URL =====
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const code = params.get("code");
@@ -90,9 +82,8 @@ function Login() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [location]); // handleYandexCallback стабилен, не меняется
+  }, [location]);
 
-  // ===== НАЖАТИЕ НА КНОПКУ =====
   const handleYandexLogin = () => {
     setLoading(true);
     setError("");
@@ -116,7 +107,6 @@ function Login() {
     window.location.href = yandexAuthUrl;
   };
 
-  // ===== РЕНДЕРИНГ =====
   return (
     <div className="login-page">
       <div className="login-container">

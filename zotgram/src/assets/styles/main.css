@@ -9,6 +9,7 @@
 @import "./comments.css";
 @import "./post.css";
 @import "./createPostModal.css";
+@import "./profile.css";
 
 html {
   box-sizing: border-box;

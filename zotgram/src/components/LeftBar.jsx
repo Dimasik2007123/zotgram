@@ -1,11 +1,16 @@
 import { Link } from "react-router";
+import getUserColor from "../utils/getUserColor";
 
 function LeftBar() {
   const user = localStorage.getItem("user");
   return (
     <div className="leftbar">
       <div className="user-info">
-        <Link to="/" className="leftbar__link link-profile link-profile--big">
+        <Link
+          to={`/profile/${user ? JSON.parse(user).id : ""}`}
+          className="leftbar__link link-profile link-profile--big"
+          style={{ background: getUserColor(user ? JSON.parse(user).id : "") }}
+        >
           {user
             ? JSON.parse(user).name.charAt(0) +
               JSON.parse(user).lastname.charAt(0)

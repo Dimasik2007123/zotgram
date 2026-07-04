@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import getUserColor from "../utils/getUserColor";
 
 function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
   const [text, setText] = useState("");
@@ -73,7 +74,10 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
 
           <div className="create-post__main">
             <div className="create-post__author">
-              <div className="create-post__author-avatar link-profile link-profile--big">
+              <div
+                className="create-post__author-avatar link-profile link-profile--big"
+                style={{ background: getUserColor(currentUser.id) }}
+              >
                 {currentUser.name
                   ? currentUser.name.charAt(0) +
                     (currentUser.lastname?.charAt(0) || "")
