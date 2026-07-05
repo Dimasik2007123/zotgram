@@ -10,6 +10,8 @@
 @import "./post.css";
 @import "./createPostModal.css";
 @import "./profile.css";
+@import "./personCard.css";
+@import "./people.css";
 
 html {
   box-sizing: border-box;

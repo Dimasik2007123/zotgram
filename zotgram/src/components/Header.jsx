@@ -43,9 +43,13 @@ function Header({ onOpenModal }) {
           />
           Сообщения
         </Link>
-        <Link to="/" className="header__menu-link">
-          <img src={people} alt="Друзья" className="header__menu-link-image" />
-          Друзья
+        <Link to="/people" className="header__menu-link">
+          <img
+            src={people}
+            alt="Сотрудники"
+            className="header__menu-link-image"
+          />
+          Сотрудники
         </Link>
       </nav>
 

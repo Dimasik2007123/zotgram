@@ -2,6 +2,7 @@
   max-width: 1000px;
   margin: 0 auto;
   padding: 16px;
+  box-sizing: border-box;
 }
 
 .profile__header {
@@ -27,6 +28,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .profile__header h1 {
@@ -98,12 +100,13 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 25px;
 }
 
 .profile__save-all-btn,
 .profile__logout-btn,
-.profile__follow-btn {
+.profile__follow-btn,
+.profile__send-message-btn {
   width: 100%;
   padding: 10px;
   border-radius: 8px;
@@ -143,10 +146,18 @@
   color: #fff;
 }
 
+.profile__send-message-btn {
+  background: #00f780;
+  color: #000;
+}
+
+.profile__send-message-btn:hover {
+  background: #02cf6c;
+}
+
 .profile__follow-btn {
   background: #4a6cf7;
   color: #fff;
-  margin-bottom: 16px;
 }
 
 .profile__follow-btn:hover {
@@ -196,4 +207,20 @@
 
 .profile-error a:hover {
   background: #3a5bd9;
+}
+
+@media (max-width: 480px) {
+  .profile__field {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .profile__field strong {
+    width: 100%;
+  }
+
+  .profile__edit-icon {
+    font-size: 20px;
+  }
 }

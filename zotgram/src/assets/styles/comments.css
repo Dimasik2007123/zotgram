@@ -60,6 +60,7 @@
   line-height: 1;
   text-decoration: none;
   font-family: inherit;
+  flex-shrink: 0;
 }
 
 .comments__body {

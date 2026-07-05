@@ -1,0 +1,90 @@
+.person {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f5f6f8;
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px solid #948e8eb4;
+  box-shadow: 0px 0px 29px -9px rgba(34, 60, 80, 0.48);
+  gap: 10px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.person__info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.person__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 30%;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.person__details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.person__details-name {
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person__details-email {
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person__details-department {
+  background-color: #a8a8a8d4;
+  color: black;
+  padding: 0 5px;
+  border-radius: 5px;
+  width: min-content;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person__send-message-btn {
+  background-color: #b3dfffd4;
+  color: rgb(29, 78, 216);
+  padding: 5px;
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  height: min-content;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.person__send-message-btn:hover {
+  background-color: #8fc9ff;
+}

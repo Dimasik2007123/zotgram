@@ -17,9 +17,9 @@ function Footer({ onOpenModal }) {
         <img src={message} alt="Сообщения" className="footer__image" />
         Сообщения
       </button>
-      <button className="footer__button" onClick={() => navigate("/")}>
-        <img src={people} alt="Друзья" className="footer__image" />
-        Друзья
+      <button className="footer__button" onClick={() => navigate("/people")}>
+        <img src={people} alt="Сотрудники" className="footer__image" />
+        Сотрудники
       </button>
       <button className="footer__button" onClick={onOpenModal}>
         <img

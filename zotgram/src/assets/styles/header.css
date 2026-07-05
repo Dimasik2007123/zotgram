@@ -162,6 +162,7 @@
 .link-profile {
   border-radius: 50%;
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .link-profile:visited {

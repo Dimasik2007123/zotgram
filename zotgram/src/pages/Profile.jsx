@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router";
 import { users } from "../users";
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import posts from "../posts";
 import Post from "../components/Post";
 
@@ -8,6 +8,8 @@ import save from "../assets/images/save.svg";
 import logout from "../assets/images/logout.svg";
 
 import getUserColor from "../utils/getUserColor";
+
+import { departments, getDepartmentName } from "../departments";
 
 function Profile() {
   const { userId } = useParams();
@@ -17,10 +19,31 @@ function Profile() {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
 
-  const profileUser = useMemo(
+  const [profileUser, setProfileUser] = useState(
     () => users.find((user) => String(user.id) === String(userId)) || null,
-    [userId],
   );
+
+  useEffect(() => {
+    const foundUser = users.find((user) => String(user.id) === String(userId));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setProfileUser(foundUser || null);
+  }, [userId]);
+
+  const handleSave = (field, value) => {
+    if (!value.trim()) return;
+
+    const updatedUser = { ...profileUser, [field]: value };
+    setProfileUser(updatedUser);
+
+    if (isCurrentUser) {
+      const localUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const updatedLocalUser = { ...localUser, [field]: value };
+      localStorage.setItem("user", JSON.stringify(updatedLocalUser));
+    }
+
+    setEditingField(null);
+    setEditValue("");
+  };
 
   const [isFollowing, setIsFollowing] = useState(() => {
     if (!profileUser) return false;
@@ -44,62 +67,11 @@ function Profile() {
   }
 
   const handleFollowToggle = () => {
-    /*const currentUserIndex = users.findIndex(
-      (u) => String(u.id) === String(currentUser.id),
-    );
-    const profileUserIndex = users.findIndex(
-      (u) => String(u.id) === String(userId),
-    );
-
-    if (currentUserIndex === -1 || profileUserIndex === -1) return;
-
-    const updatedUsers = [...users];
-    const currentUserData = updatedUsers[currentUserIndex];
-    const profileUserData = updatedUsers[profileUserIndex];
-
-    if (isFollowing) {
-      currentUserData.following = currentUserData.following.filter(
-        (id) => String(id) !== String(userId),
-      );
-      profileUserData.followers = profileUserData.followers.filter(
-        (id) => String(id) !== String(currentUser.id),
-      );
-    } else {
-      // Подписываемся
-      if (!currentUserData.following) currentUserData.following = [];
-      if (!profileUserData.followers) profileUserData.followers = [];
-      currentUserData.following.push(profileUserData.id);
-      profileUserData.followers.push(currentUserData.id);
-    }
-
-    // Обновляем users
-    users[currentUserIndex] = currentUserData;
-    users[profileUserIndex] = profileUserData;
-  */
-    // Обновляем состояние
     setIsFollowing(!isFollowing);
   };
 
-  const handleSave = (field, value) => {
-    if (!value.trim()) return;
-
-    /*const updatedUser = { ...profileUser, [field]: value };*/
-
-    // Обновляем в массиве users
-    /*const userIndex = users.findIndex((u) => String(u.id) === String(userId));
-    if (userIndex !== -1) {
-      users[userIndex] = updatedUser;
-    }*/
-
-    if (isCurrentUser) {
-      const localUser = JSON.parse(localStorage.getItem("user") || "{}");
-      const updatedLocalUser = { ...localUser, [field]: value };
-      localStorage.setItem("user", JSON.stringify(updatedLocalUser));
-    }
-
-    setEditingField(null);
-    setEditValue("");
-    location.reload();
+  const handleMessage = (userId) => {
+    console.log(`Начать чат с пользователем ${userId}`);
   };
 
   const startEditing = (field, value) => {
@@ -121,21 +93,45 @@ function Profile() {
     if (!isCurrentUser && label === "О себе") return;
     const isEditing = editingField === field;
 
+    const isDepartment = field === "department";
+
     return (
       <div className="profile__field">
         <strong>{label}:</strong>
         {isEditing ? (
-          <input
-            type="text"
-            className="profile__input"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={() => handleSave(field, editValue)}
-            onKeyDown={(e) => handleKeyDown(e, field)}
-            autoFocus
-          />
+          isDepartment ? (
+            <select
+              className="profile__input"
+              value={editValue || ""}
+              onChange={(e) => {
+                setEditValue(e.target.value);
+                handleSave(field, e.target.value);
+              }}
+              onBlur={() => handleSave(field, editValue)}
+              autoFocus
+            >
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              className="profile__input"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={() => handleSave(field, editValue)}
+              onKeyDown={(e) => handleKeyDown(e, field)}
+              autoFocus
+              required
+            />
+          )
         ) : (
-          <span className="profile__value">{value || "Не указано"}</span>
+          <span className="profile__value">
+            {isDepartment ? getDepartmentName(value) : value || "Не указано"}
+          </span>
         )}
         {isCurrentUser && !isEditing && (
           <button
@@ -176,13 +172,14 @@ function Profile() {
         {renderField("Телефон", "phone", profileUser.phone)}
         {renderField("Дата рождения", "birthDate", profileUser.birthDate)}
         {renderField("О себе", "bio", profileUser.bio)}
+        {renderField("Отдел", "department", profileUser.department)}
       </div>
 
       {isCurrentUser ? (
         <div className="profile__actions">
           <button
             className="profile__save-all-btn"
-            onClick={() => alert("Все данные сохранены в localStorage")}
+            onClick={() => location.reload()}
           >
             <img
               src={save}
@@ -204,12 +201,20 @@ function Profile() {
           </button>
         </div>
       ) : (
-        <button
-          className={`profile__follow-btn ${isFollowing ? "following" : ""}`}
-          onClick={handleFollowToggle}
-        >
-          {isFollowing ? "Отписаться" : "Подписаться"}
-        </button>
+        <div className="profile__actions">
+          <button
+            className="profile__send-message-btn"
+            onClick={handleMessage(profileUser.id)}
+          >
+            Перейти в чат
+          </button>
+          <button
+            className={`profile__follow-btn ${isFollowing ? "following" : ""}`}
+            onClick={handleFollowToggle}
+          >
+            {isFollowing ? "Отписаться" : "Подписаться"}
+          </button>
+        </div>
       )}
 
       <div className="profile__posts-list">

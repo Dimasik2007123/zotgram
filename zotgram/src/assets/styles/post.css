@@ -99,3 +99,18 @@
   width: 20px;
   transition: all 0.2s;
 }
+
+@media (max-width: 480px) {
+  .post__buttons {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 5px;
+  }
+
+  .post__stats-likes,
+  .post__stats-comments {
+    opacity: 0.5;
+    font-size: 14px;
+  }
+}
