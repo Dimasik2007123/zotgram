@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import like from "../assets/images/like.svg";
 import likeFilled from "../assets/images/likeIsLiked.svg";
 import comments from "../assets/images/comment.svg";
@@ -13,8 +14,8 @@ function Post({ post, showActivity = true }) {
   const [likes, setLikes] = useState(post.likes || []);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
 
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const currentUserId = currentUser.id || 1;
+  const { user: currentUser } = useSelector((state) => state.user);
+  const currentUserId = currentUser?.id || 1;
 
   const isLiked = likes.includes(currentUserId);
 

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import logo from "../assets/images/logo.svg";
 import union from "../assets/images/union.svg";
 import house from "../assets/images/house.svg";
@@ -10,7 +11,7 @@ import getUserColor from "../utils/getUserColor";
 
 function Header({ onOpenModal }) {
   //const [activePage, setActivePage] = useState(null);
-  const user = localStorage.getItem("user");
+  const { user } = useSelector((state) => state.user);
 
   return (
     <header className="header">
@@ -59,14 +60,12 @@ function Header({ onOpenModal }) {
           Пост
         </button>
         <Link
-          to={`/profile/${user ? JSON.parse(user).id : ""}`}
+          to={`/profile/${user?.id || ""}`}
           className="header__right-link link-profile"
-          style={{ background: getUserColor(user ? JSON.parse(user).id : "") }}
+          style={{ background: getUserColor(user?.id || "") }}
         >
-          {user
-            ? JSON.parse(user).name.charAt(0) +
-              JSON.parse(user).lastname.charAt(0)
-            : "П"}
+          {user?.name?.charAt(0) || "П"}
+          {user?.lastname?.charAt(0) || ""}
         </Link>
       </div>
     </header>

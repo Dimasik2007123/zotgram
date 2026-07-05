@@ -1,12 +1,13 @@
 import send from "../assets/images/send.svg";
 import { useState } from "react";
+import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import getUserColor from "../utils/getUserColor";
 import users from "../users";
 
 function Comments({ comments, postId, onAddComment }) {
   const [newComment, setNewComment] = useState("");
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const { user: currentUser } = useSelector((state) => state.user);
 
   const handleSubmit = (e) => {
     e.preventDefault();

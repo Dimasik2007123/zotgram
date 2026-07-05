@@ -1,29 +1,26 @@
 import { Link } from "react-router";
+import { useSelector } from "react-redux";
 import getUserColor from "../utils/getUserColor";
 
 function LeftBar() {
-  const user = localStorage.getItem("user");
+  const { user } = useSelector((state) => state.user);
   return (
     <div className="leftbar">
       <div className="user-info">
         <Link
-          to={`/profile/${user ? JSON.parse(user).id : ""}`}
+          to={`/profile/${user?.id || ""}`}
           className="leftbar__link link-profile link-profile--big"
-          style={{ background: getUserColor(user ? JSON.parse(user).id : "") }}
+          style={{ background: getUserColor(user?.id || "") }}
         >
-          {user
-            ? JSON.parse(user).name.charAt(0) +
-              JSON.parse(user).lastname.charAt(0)
-            : "П"}
+          {user?.name?.charAt(0) || "П"}
+          {user?.lastname?.charAt(0) || ""}
         </Link>
         <div className="user-infotext">
           <div className="user-infoname">
-            {user ? JSON.parse(user).name : "Пользователь"}{" "}
-            {user ? JSON.parse(user).lastname : ""}
+            {user.name ? user.name : "Пользователь"}{" "}
+            {user.lastname ? user.lastname : ""}
           </div>
-          <div className="user-infodesc">
-            {user ? JSON.parse(user).email : ""}
-          </div>
+          <div className="user-infodesc">{user ? user.email : ""}</div>
         </div>
       </div>
 

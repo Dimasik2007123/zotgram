@@ -1,8 +1,9 @@
 import PersonCard from "../components/PersonCard";
 import users from "../users";
+import { useSelector } from "react-redux";
 
 function People() {
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const { user: currentUser } = useSelector((state) => state.user);
 
   const colleages = users.filter(
     (u) => u.department === currentUser.department && u.id !== currentUser.id,

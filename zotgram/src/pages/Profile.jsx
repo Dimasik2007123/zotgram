@@ -1,19 +1,23 @@
 import { useParams, Link } from "react-router";
 import { users } from "../users";
 import { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { updateUser, logout } from "../store/userReducer";
 import posts from "../posts";
 import Post from "../components/Post";
 
 import save from "../assets/images/save.svg";
-import logout from "../assets/images/logout.svg";
+import logout_image from "../assets/images/logout.svg";
 
 import getUserColor from "../utils/getUserColor";
 
 import { departments, getDepartmentName } from "../departments";
 
 function Profile() {
+  const dispatch = useDispatch();
+  const { user: currentUser } = useSelector((state) => state.user);
+
   const { userId } = useParams();
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isCurrentUser = String(userId) === String(currentUser.id);
 
   const [editingField, setEditingField] = useState(null);
@@ -32,14 +36,9 @@ function Profile() {
   const handleSave = (field, value) => {
     if (!value.trim()) return;
 
-    const updatedUser = { ...profileUser, [field]: value };
-    setProfileUser(updatedUser);
+    dispatch(updateUser({ [field]: value }));
 
-    if (isCurrentUser) {
-      const localUser = JSON.parse(localStorage.getItem("user") || "{}");
-      const updatedLocalUser = { ...localUser, [field]: value };
-      localStorage.setItem("user", JSON.stringify(updatedLocalUser));
-    }
+    setProfileUser((prev) => ({ ...prev, [field]: value }));
 
     setEditingField(null);
     setEditValue("");
@@ -191,12 +190,15 @@ function Profile() {
           <button
             className="profile__logout-btn"
             onClick={() => {
-              localStorage.removeItem("user");
-              localStorage.removeItem("yandex_token");
+              dispatch(logout());
               window.location.href = "/login";
             }}
           >
-            <img src={logout} alt="Выйти" className="header__menu-link-image" />
+            <img
+              src={logout_image}
+              alt="Выйти"
+              className="header__menu-link-image"
+            />
             Выйти из аккаунта
           </button>
         </div>

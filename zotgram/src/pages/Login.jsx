@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { login } from "../store/userReducer";
 
 function Login() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
@@ -60,10 +63,9 @@ function Login() {
         login: yandexUser.login || "",
       };
 
-      localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("yandex_token", accessToken);
+      dispatch(login(userData));
 
-      navigate("/", { state: { user: userData } });
+      navigate("/");
     } catch (error) {
       console.error("Ошибка авторизации через Яндекс:", error);
       setError(error.message || "Не удалось выполнить вход через Яндекс");

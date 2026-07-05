@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useSelector } from "react-redux";
 import getUserColor from "../utils/getUserColor";
 
 function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
@@ -8,7 +9,7 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const { user: currentUser } = useSelector((state) => state.user);
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) onClose();
