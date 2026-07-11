@@ -1,0 +1,325 @@
+/* GroupInfoModal.css */
+
+.group-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #cdcdcdde;
+  margin-left: -24px;
+  padding-left: 24px;
+  margin-right: -24px;
+  padding-right: 24px;
+}
+
+.group-modal__header p {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.group-modal__close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #888;
+  cursor: pointer;
+}
+
+.group-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Аватар */
+.group-modal__avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-modal__avatar-wrapper {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.group-modal__avatar-wrapper img,
+.group-modal__avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.group-modal__avatar-placeholder {
+  background: #4a6cf7;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-modal__avatar-edit {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #4a6cf7;
+  color: #fff;
+  border: 2px solid #fff;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-modal__avatar-edit img {
+  width: 16px;
+  height: 16px;
+}
+
+.group-modal__avatar-remove {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+/* Название */
+.group-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.group-modal__field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
+
+.group-modal__name-display,
+.group-modal__name-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-modal__name-display span {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.group-modal__name-display button,
+.group-modal__name-edit button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: #888;
+}
+
+.group-modal__edit-btn {
+  width: 25px;
+  height: 25px;
+}
+.group-modal__edit-btn img {
+  width: 100%;
+  height: 100%;
+}
+
+.group-modal__name-edit input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1.5px solid #4a6cf7;
+  border-radius: 6px;
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* Участники */
+.group-modal__participants-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.group-modal__add-btn {
+  background: none;
+  border: none;
+  color: #4a6cf7;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.group-modal__add-btn img {
+  width: 16px;
+  height: 16px;
+  filter: invert(100%);
+}
+
+.group-modal__participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.group-modal__participant {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.group-modal__participant:hover {
+  background: #f5f6f8;
+}
+
+.group-modal__participant-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.group-modal__participant-name {
+  flex: 1;
+  font-size: 14px;
+}
+
+.group-modal__participant-remove {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.group-modal__participant-remove:hover {
+  color: #e74c3c;
+}
+
+.group-modal__add-participants {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f5f6f8;
+  border-radius: 10px;
+}
+
+.group-modal__search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e4e6eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.group-modal__search-input:focus {
+  border-color: #4a6cf7;
+}
+
+.group-modal__search-results {
+  margin-top: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.group-modal__search-empty {
+  color: #8a8d91;
+  font-size: 14px;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.group-modal__search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.group-modal__search-item:hover {
+  background: #e4e6eb;
+}
+
+.group-modal__search-add {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.group-modal__search-add img {
+  filter: invert(100%);
+  width: 16px;
+  height: 16px;
+}
+
+.group-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #cdcdcdde;
+  margin-left: -24px;
+  padding-left: 24px;
+  margin-right: -24px;
+  padding-right: 24px;
+}
+
+.group-modal__save-btn {
+  padding: 8px 24px;
+  border: none;
+  border-radius: 20px;
+  background: #4a6cf7;
+  color: white;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.group-modal__save-btn:hover {
+  background: #3a5bd9;
+}

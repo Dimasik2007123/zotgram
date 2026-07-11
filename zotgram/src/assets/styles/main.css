@@ -12,6 +12,11 @@
 @import "./profile.css";
 @import "./personCard.css";
 @import "./people.css";
+@import "./messages.css";
+@import "./chatsListItem.css";
+@import "./chatsList.css";
+@import "./chat.css";
+@import "./groupInfoModal.css";
 
 html {
   box-sizing: border-box;

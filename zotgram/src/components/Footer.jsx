@@ -13,7 +13,7 @@ function Footer({ onOpenModal }) {
         <img src={house} alt="Посты" className="footer__image" />
         Посты
       </button>
-      <button className="footer__button" onClick={() => navigate("/")}>
+      <button className="footer__button" onClick={() => navigate("/chats")}>
         <img src={message} alt="Сообщения" className="footer__image" />
         Сообщения
       </button>

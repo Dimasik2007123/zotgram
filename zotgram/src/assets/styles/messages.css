@@ -1,0 +1,27 @@
+.messages {
+  width: 100%;
+  margin: -20px;
+  padding: 20px;
+  display: flex;
+  min-height: 100px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.messages__placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a8d91;
+  font-size: 16px;
+  background: #fafafa;
+  margin: -1px;
+  padding: 1px;
+  margin-top: -20px;
+  padding-top: 20px;
+  margin-right: -20px;
+  padding-right: 20px;
+  border-left: 1px solid #cdcdcdde;
+  overflow: hidden;
+}

@@ -6,6 +6,7 @@
   background-color: aliceblue;
   position: relative;
   flex: 1;
+  border-right: 1px solid #cdcdcdde;
 }
 
 .leftbar__link {

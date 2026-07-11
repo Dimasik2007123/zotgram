@@ -1,0 +1,65 @@
+export const chats = [
+  {
+    id: "1",
+    type: "personal", // personal | group
+    name: "Анна Кузнецова",
+    participants: ["1047684395", "1"],
+    messageIds: ["1", "2", "3", "4"],
+    updatedAt: "2026-07-11T14:30:00Z",
+  },
+  {
+    id: "2",
+    type: "personal",
+    name: "Иван Петров",
+    participants: ["1047684395", "2"],
+    messageIds: ["5", "6"],
+    updatedAt: "2026-07-10T18:20:00Z",
+  },
+  {
+    id: "3",
+    type: "group",
+    name: "Фронтенд-команда",
+    participants: ["1047684395", "1", "7", "3"],
+    messageIds: ["7", "8", "9", "10", "11"],
+    updatedAt: "2026-07-11T12:00:00Z",
+  },
+  {
+    id: "4",
+    type: "personal",
+    name: "Елена Морозова",
+    participants: ["1047684395", "6"],
+    messageIds: ["12", "13"],
+    updatedAt: "2026-07-09T09:15:00Z",
+  },
+  {
+    id: "5",
+    type: "group",
+    name: "Общий чат компании",
+    participants: [
+      "1047684395",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+    ],
+    messageIds: ["14", "15", "16", "17", "18"],
+    avatar: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+    updatedAt: "2026-07-11T16:45:00Z",
+  },
+  {
+    id: "6",
+    type: "personal",
+    name: "Максим Соколов",
+    participants: ["1047684395", "5"],
+    messageIds: ["19"],
+    updatedAt: "2026-07-08T11:30:00Z",
+  },
+];
+
+export default chats;

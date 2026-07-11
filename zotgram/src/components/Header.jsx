@@ -8,10 +8,12 @@ import people from "../assets/images/people.svg";
 import plus from "../assets/images/plus.svg";
 //import { useState } from "react";
 import getUserColor from "../utils/getUserColor";
+import { getTotalUnreadCounts } from "../utils/getUnreadCount";
 
 function Header({ onOpenModal }) {
   //const [activePage, setActivePage] = useState(null);
   const { user } = useSelector((state) => state.user);
+  const unreadCounts = getTotalUnreadCounts(user?.id || "");
 
   return (
     <header className="header">
@@ -36,13 +38,18 @@ function Header({ onOpenModal }) {
           <img src={house} alt="Посты" className="header__menu-link-image" />
           Посты
         </Link>
-        <Link to="/" className="header__menu-link">
+        <Link to="/chats" className="header__menu-link">
           <img
             src={message}
             alt="Сообщения"
             className="header__menu-link-image"
           />
-          Сообщения
+          Сообщения{" "}
+          {unreadCounts > 0 && (
+            <span className="header__menu-link-unread-count">
+              {unreadCounts}
+            </span>
+          )}
         </Link>
         <Link to="/people" className="header__menu-link">
           <img
