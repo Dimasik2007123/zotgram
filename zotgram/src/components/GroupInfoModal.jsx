@@ -1,4 +1,3 @@
-// components/GroupInfoModal.jsx
 import { useState, useRef } from "react";
 import users from "../users";
 import edit from "../assets/images/edit.svg";
@@ -24,7 +23,6 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
     (u) => !chat.participants.some((id) => String(id) === String(u.id)),
   );
 
-  // Поиск по доступным пользователям
   const filteredUsers = availableUsers.filter((u) =>
     `${u.name} ${u.lastname}`.toLowerCase().includes(searchQuery.toLowerCase()),
   );
@@ -89,7 +87,6 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
         </div>
 
         <div className="group-modal__body">
-          {/* Аватар */}
           <div className="group-modal__avatar-section">
             <div className="group-modal__avatar-wrapper">
               {avatarPreview ? (
@@ -123,7 +120,6 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
             )}
           </div>
 
-          {/* Название */}
           <div className="group-modal__field">
             <label>Название группы</label>
             {isEditingName ? (
@@ -149,7 +145,6 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
             )}
           </div>
 
-          {/* Участники */}
           <div className="group-modal__participants">
             <div className="group-modal__participants-header">
               <span>Участники ({participants.length})</span>
