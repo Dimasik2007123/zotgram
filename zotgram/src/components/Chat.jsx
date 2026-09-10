@@ -13,7 +13,7 @@ import back from "../assets/images/back.svg";
 
 import GroupInfoModal from "./GroupInfoModal.jsx";
 
-function Chat() {
+function ChatContent() {
   const { chatId } = useParams();
   const navigate = useNavigate();
   const currentUser = useSelector((state) => state.user.user);
@@ -237,6 +237,12 @@ function Chat() {
       />
     </div>
   );
+}
+
+function Chat() {
+  const { chatId } = useParams();
+
+  return <ChatContent key={chatId} />;
 }
 
 export default Chat;
