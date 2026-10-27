@@ -93,7 +93,7 @@ function ChatContent() {
                 <div
                   className="chat__header-avatar-placeholder"
                   style={{
-                    background: getUserColor(companion?.id || ""),
+                    background: getUserColor(companion),
                   }}
                 >
                   {companion?.name?.charAt(0) || "?"}
@@ -145,7 +145,7 @@ function ChatContent() {
                 {!isOwn && (
                   <div
                     className="chat__message-avatar"
-                    style={{ background: getUserColor(msg.authorId) }}
+                    style={{ background: getUserColor(isOwn ? currentUser : author) }}
                   >
                     {authorName.charAt(0)}
                     {author?.lastname?.charAt(0) || ""}
@@ -163,7 +163,10 @@ function ChatContent() {
                         className="chat__message-image"
                       />
                     ) : msg.type === "file" ? (
-                      <div className="chat__message-file">📎 Файл</div>
+                      <div className="chat__message-file">
+                        <img src={attach} alt="" />
+                        Файл
+                      </div>
                     ) : (
                       <div className="chat__message-text">{msg.content}</div>
                     )}
@@ -207,7 +210,8 @@ function ChatContent() {
 
           {filePreview && (
             <div className="chat__input-file-preview">
-              <span>📎 {filePreview}</span>
+              <img src={attach} alt="" />
+              <span>{filePreview}</span>
               <button
                 type="button"
                 className="chat__input-file-remove"

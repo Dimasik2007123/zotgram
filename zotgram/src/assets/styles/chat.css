@@ -205,6 +205,19 @@
   gap: 6px;
 }
 
+.chat__message-file img,
+.chat__input-file-preview img {
+  width: 18px;
+  height: 18px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.chat__message--own .chat__message-file img {
+  filter: brightness(0) invert(1);
+}
+
 .chat__message-time {
   font-size: 11px;
   color: #8a8d91;

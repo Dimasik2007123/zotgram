@@ -160,7 +160,7 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
                 <div key={user.id} className="group-modal__participant">
                   <div
                     className="group-modal__participant-avatar"
-                    style={{ background: getUserColor(user.id) }}
+                    style={{ background: getUserColor(user) }}
                   >
                     {user.name?.charAt(0) || "?"}
                     {user.lastname?.charAt(0) || ""}
@@ -204,7 +204,7 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
                       >
                         <div
                           className="group-modal__participant-avatar"
-                          style={{ background: getUserColor(user.id) }}
+                          style={{ background: getUserColor(user) }}
                         >
                           {user.name?.charAt(0) || "?"}
                           {user.lastname?.charAt(0) || ""}

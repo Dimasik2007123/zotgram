@@ -1,0 +1,48 @@
+name: zotgram
+
+services:
+  core-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: core_db
+      POSTGRES_USER: core_user
+      POSTGRES_PASSWORD: core_dev_only
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - core-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U core_user -d core_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  chat-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: chat_db
+      POSTGRES_USER: chat_user
+      POSTGRES_PASSWORD: chat_dev_only
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - chat-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat_user -d chat_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  core-db-data:
+  chat-db-data:

@@ -19,7 +19,7 @@ function PersonCard({ person, onMessage }) {
       <div className="person__info">
         <div
           className="person__avatar"
-          style={{ background: getUserColor(person.id) }}
+          style={{ background: getUserColor(person) }}
         >
           {person.name && person.lastname
             ? person.name.charAt(0) + person.lastname.charAt(0)

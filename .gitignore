@@ -1,0 +1,30 @@
+**/.venv/
+**/__pycache__/
+**/.env
+**/.env.*
+!**/.env.example
+backend/keys/*.pem
+**/db.sqlite3
+backend/core/media/
+backend/chat/media/
+backend/core/staticfiles/
+backend/chat/staticfiles/
+
+# Frontend dependencies, builds, and logs
+node_modules/
+dist/
+dist-ssr/
+*.log
+*.local
+
+# Local checks and editor files
+.tmp/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -77,6 +77,15 @@
   text-overflow: ellipsis;
 }
 
+.chats-list-item__attachment-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  vertical-align: -3px;
+  margin-right: 4px;
+  opacity: 0.55;
+}
+
 .chats-list-item__meta {
   display: flex;
   flex-direction: column;

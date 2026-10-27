@@ -2,7 +2,8 @@ import { useParams, Link } from "react-router";
 import { users } from "../users";
 import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { updateUser, logout } from "../store/userReducer";
+import { updateUser } from "../store/userReducer";
+import { logoutSession } from "../api/session";
 import posts from "../posts";
 import Post from "../components/Post";
 
@@ -32,6 +33,14 @@ function Profile() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setProfileUser(foundUser || null);
   }, [userId]);
+
+  async function handleLogout() {
+    try {
+      await logoutSession();
+    } catch (error) {
+      window.alert(error.message || "Не удалось выйти. Попробуй снова.");
+    }
+  }
 
   const handleSave = (field, value) => {
     if (!value.trim()) return;
@@ -151,7 +160,7 @@ function Profile() {
         <div className="profile__avatar">
           <div
             className="profile__avatar-placeholder"
-            style={{ background: getUserColor(profileUser.id) }}
+            style={{ background: getUserColor(isCurrentUser ? currentUser : profileUser) }}
           >
             {profileUser.name?.charAt(0) || "П"}
             {profileUser.lastname?.charAt(0) || ""}
@@ -187,13 +196,7 @@ function Profile() {
             />
             Сохранить все изменения
           </button>
-          <button
-            className="profile__logout-btn"
-            onClick={() => {
-              dispatch(logout());
-              window.location.href = "/login";
-            }}
-          >
+          <button className="profile__logout-btn" onClick={handleLogout}>
             <img
               src={logout_image}
               alt="Выйти"

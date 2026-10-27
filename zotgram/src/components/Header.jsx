@@ -69,7 +69,7 @@ function Header({ onOpenModal }) {
         <Link
           to={`/profile/${user?.id || ""}`}
           className="header__right-link link-profile"
-          style={{ background: getUserColor(user?.id || "") }}
+          style={{ background: getUserColor(user) }}
         >
           {user?.name?.charAt(0) || "П"}
           {user?.lastname?.charAt(0) || ""}

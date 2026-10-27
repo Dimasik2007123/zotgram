@@ -2,112 +2,62 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { login } from "../store/userReducer";
+import { authPost, readResponse, setAccess } from "../api/session";
+
+const attempts = new Map();
 
 function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleYandexCallback = async (code) => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const tokenResponse = await fetch("https://oauth.yandex.ru/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          code: code,
-          client_id: import.meta.env.VITE_YANDEX_CLIENT_ID,
-          client_secret: import.meta.env.VITE_YANDEX_CLIENT_SECRET || "",
-        }),
-      });
-
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json();
-        throw new Error(
-          errorData.error_description || "Не удалось получить токен",
-        );
-      }
-
-      const tokenData = await tokenResponse.json();
-      const accessToken = tokenData.access_token;
-
-      const userResponse = await fetch(
-        "https://login.yandex.ru/info?format=json",
-        {
-          headers: {
-            Authorization: `OAuth ${accessToken}`,
-          },
-        },
-      );
-
-      if (!userResponse.ok) {
-        throw new Error("Не удалось получить данные пользователя");
-      }
-
-      const yandexUser = await userResponse.json();
-
-      const userData = {
-        id: yandexUser.id,
-        name:
-          yandexUser.first_name || yandexUser.display_name || "Пользователь",
-        lastname: yandexUser.last_name || "",
-        email: yandexUser.default_email || "",
-        avatar: yandexUser.default_avatar_id || "",
-        login: yandexUser.login || "",
-      };
-
-      dispatch(login(userData));
-
-      navigate("/");
-    } catch (error) {
-      console.error("Ошибка авторизации через Яндекс:", error);
-      setError(error.message || "Не удалось выполнить вход через Яндекс");
-      setLoading(false);
-    }
-  };
+  const params = new URLSearchParams(location.search);
+  const code = params.get("code");
+  const state = params.get("state");
+  const oauthError = params.get("error");
+  const [starting, setStarting] = useState(false);
+  const [failure, setFailure] = useState(null);
+  const requestError =
+    failure?.search === location.search ? failure.message : "";
+  const error = starting
+    ? ""
+    : requestError || (oauthError ? "Вход отменён. Можно попробовать снова." : "");
+  const loading = starting || Boolean(code && !oauthError && !requestError);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const code = params.get("code");
-
-    if (code) {
-      const timeoutId = setTimeout(() => {
-        handleYandexCallback(code);
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
+    if (oauthError || !code) return;
+    let active = true;
+    if (!attempts.has(code))
+      attempts.set(code, authPost("callback", { code, state }));
+    attempts
+      .get(code)
+      .then((data) => {
+        if (!active) return;
+        setAccess(data.access);
+        dispatch(login(data.user));
+        navigate("/", { replace: true });
+      })
+      .catch((err) => {
+        if (active) {
+          setFailure({ search: location.search, message: err.message });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [code, state, oauthError, location.search, dispatch, navigate]);
+  async function begin() {
+    setStarting(true);
+    setFailure(null);
+    try {
+      const data = await fetch("/api/core/auth/start/", {
+        credentials: "same-origin",
+      }).then(readResponse);
+      window.location.assign(data.authorize_url);
+    } catch (err) {
+      setFailure({ search: location.search, message: err.message });
+      setStarting(false);
     }
-  }, [location]);
-
-  const handleYandexLogin = () => {
-    setLoading(true);
-    setError("");
-
-    const clientId = import.meta.env.VITE_YANDEX_CLIENT_ID;
-    const redirectUri = import.meta.env.VITE_YANDEX_REDIRECT_URI;
-
-    if (!clientId || clientId === "ваш_client_id_из_яндекса") {
-      setError("Client ID не настроен. Проверьте файл .env");
-      setLoading(false);
-      return;
-    }
-
-    const yandexAuthUrl =
-      `https://oauth.yandex.ru/authorize?` +
-      `response_type=code&` +
-      `client_id=${clientId}&` +
-      `redirect_uri=${redirectUri}&` +
-      `force_confirm=false`;
-
-    window.location.href = yandexAuthUrl;
-  };
+  }
 
   return (
     <div className="login-page">
@@ -117,13 +67,13 @@ function Login() {
           <p>Внутренняя соцсеть компании</p>
         </div>
 
-        {error && <div className="login-error">{error}</div>}
+        {error && (
+          <div className="login-error" role="alert">
+            {error}
+          </div>
+        )}
 
-        <button
-          onClick={handleYandexLogin}
-          disabled={loading}
-          className="yandex-login-btn"
-        >
+        <button onClick={begin} disabled={loading} className="yandex-login-btn">
           <svg
             width="24"
             height="24"

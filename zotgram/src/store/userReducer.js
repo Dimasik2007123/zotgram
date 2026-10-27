@@ -1,21 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
-import users from "../users";
 
 const initialState = {
-  user: (() => {
-    try {
-      const data = localStorage.getItem("user");
-      if (!data) return null;
-      const parsed = JSON.parse(data);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? parsed
-        : null;
-    } catch {
-      return null;
-    }
-  })(),
-  isAuthenticated: !!localStorage.getItem("user"),
-  loading: false,
+  user: null,
+  isAuthenticated: false,
+  loading: true,
   error: null,
 };
 
@@ -24,33 +12,27 @@ const userSlice = createSlice({
   initialState,
   reducers: {
     login: (state, action) => {
-      const payloadUser = action.payload;
-      const existingUser = users.find(
-        (u) => String(u.id) === String(payloadUser.id),
-      );
-      const userData = existingUser || payloadUser;
-
+      const userData = action.payload;
       state.user = userData;
       state.isAuthenticated = true;
+      state.loading = false;
       state.error = null;
-      localStorage.setItem("user", JSON.stringify(userData));
     },
     logout: (state) => {
       state.user = null;
       state.isAuthenticated = false;
+      state.loading = false;
       state.error = null;
-      localStorage.removeItem("user");
-      localStorage.removeItem("yandex_token");
     },
     setError: (state, action) => {
       state.error = action.payload;
+      state.loading = false;
     },
     clearError: (state) => {
       state.error = null;
     },
     updateUser: (state, action) => {
       state.user = { ...state.user, ...action.payload };
-      localStorage.setItem("user", JSON.stringify(state.user));
     },
   },
 });

@@ -5,6 +5,8 @@ import getUserColor from "../utils/getUserColor";
 import { getUnreadCount } from "../utils/getUnreadCount";
 import users from "../users";
 import messages from "../messages";
+import fileIcon from "../assets/images/file.svg";
+import photoIcon from "../assets/images/photo.svg";
 
 function ChatsListItem({ chat }) {
   const { chatId } = useParams();
@@ -66,8 +68,20 @@ function ChatsListItem({ chat }) {
       String(lastMessage.authorId) === String(currentUser.id);
     const prefix = isOwnMessage ? "Вы: " : `${authorName}: `;
 
-    if (lastMessage.type === "file") return `${prefix}📎 Файл`;
-    if (lastMessage.type === "image") return `${prefix}🖼️ Изображение`;
+    if (lastMessage.type === "file" || lastMessage.type === "image") {
+      const isImage = lastMessage.type === "image";
+      return (
+        <>
+          {prefix}
+          <img
+            className="chats-list-item__attachment-icon"
+            src={isImage ? photoIcon : fileIcon}
+            alt=""
+          />
+          {isImage ? "Изображение" : "Файл"}
+        </>
+      );
+    }
     return `${prefix}${lastMessage.content}`;
   };
 
@@ -91,7 +105,7 @@ function ChatsListItem({ chat }) {
           <div
             className="chats-list-item__avatar-placeholder"
             style={{
-              background: getUserColor(companion?.id || ""),
+              background: getUserColor(companion),
             }}
           >
             {companion?.name?.charAt(0) || "?"}

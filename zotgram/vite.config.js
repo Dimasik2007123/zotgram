@@ -5,7 +5,13 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   server: {
-    open: true, // автоматически открывать страницу в браузере
-    port: 3000, // порт dev-сервера
+    open: true,
+    port: 3000,
+    strictPort: true,
+    proxy: {
+      "/api/core": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/api/chat": { target: "http://127.0.0.1:8001", changeOrigin: true },
+      "/ws": { target: "ws://127.0.0.1:8001", ws: true },
+    },
   },
 });

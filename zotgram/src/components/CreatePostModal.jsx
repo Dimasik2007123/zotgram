@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import getUserColor from "../utils/getUserColor";
+import photo from "../assets/images/photo.svg";
 
 function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
   const [text, setText] = useState("");
@@ -77,7 +78,7 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
             <div className="create-post__author">
               <div
                 className="create-post__author-avatar link-profile link-profile--big"
-                style={{ background: getUserColor(currentUser.id) }}
+                style={{ background: getUserColor(currentUser) }}
               >
                 {currentUser.name
                   ? currentUser.name.charAt(0) +
@@ -123,7 +124,8 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
                   className="create-post__attach-btn"
                   onClick={() => fileInputRef.current.click()}
                 >
-                  📎 Фото
+                  <img src={photo} alt="" />
+                  Фото
                 </button>
                 <input
                   type="file"

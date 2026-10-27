@@ -10,7 +10,7 @@ function LeftBar() {
         <Link
           to={`/profile/${user?.id || ""}`}
           className="leftbar__link link-profile link-profile--big"
-          style={{ background: getUserColor(user?.id || "") }}
+          style={{ background: getUserColor(user) }}
         >
           {user?.name?.charAt(0) || "П"}
           {user?.lastname?.charAt(0) || ""}

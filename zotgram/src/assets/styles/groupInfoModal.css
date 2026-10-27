@@ -85,6 +85,11 @@
 .group-modal__avatar-edit img {
   width: 16px;
   height: 16px;
+  display: block;
+  object-fit: contain;
+  border-radius: 0;
+  flex-shrink: 0;
+  filter: brightness(0) invert(1);
 }
 
 .group-modal__avatar-remove {

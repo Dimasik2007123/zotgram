@@ -153,7 +153,7 @@ function Post({ post, showActivity = true }) {
           <Link
             to={`/profile/${post.userId}`}
             className="leftbar__link link-profile link-profile--big"
-            style={{ background: getUserColor(post.userId) }}
+            style={{ background: getUserColor(String(post.userId) === String(currentUser?.id) ? currentUser : user) }}
           >
             {firstName && lastName
               ? firstName.charAt(0) + lastName.charAt(0)

@@ -50,7 +50,7 @@ function Comments({ comments, postId, onAddComment }) {
                   <Link
                     to={`/profile/${comment.userId}`}
                     className="comments__avatar"
-                    style={{ background: getUserColor(comment.userId) }}
+                    style={{ background: getUserColor(isMyComment ? currentUser : user) }}
                   >
                     {firstName && lastName
                       ? firstName.charAt(0) + lastName.charAt(0)
@@ -76,7 +76,7 @@ function Comments({ comments, postId, onAddComment }) {
                   <Link
                     to={`/profile/${comment.userId}`}
                     className="comments__avatar"
-                    style={{ background: getUserColor(comment.userId) }}
+                    style={{ background: getUserColor(isMyComment ? currentUser : user) }}
                   >
                     {firstName && lastName
                       ? firstName.charAt(0) + lastName.charAt(0)
@@ -92,7 +92,7 @@ function Comments({ comments, postId, onAddComment }) {
       <form className="comments__form" onSubmit={handleSubmit}>
         <Link
           to={`/profile/${currentUser.id}`}
-          style={{ background: getUserColor(currentUser.id) }}
+          style={{ background: getUserColor(currentUser) }}
           className="comments__avatar"
         >
           {currentUser.name
