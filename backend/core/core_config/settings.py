@@ -78,6 +78,8 @@ REFRESH_COOKIE_PATH = "/api/core/auth/"
 
 COOKIE_SECURE = env.bool("COOKIE_SECURE", default=False)
 
+DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
+
 YANDEX_CLIENT_ID = env("YANDEX_CLIENT_ID", default="")
 
 YANDEX_CLIENT_SECRET = env("YANDEX_CLIENT_SECRET", default="")
@@ -163,6 +165,7 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_URL, MEDIA_ROOT = '/media/core/', BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

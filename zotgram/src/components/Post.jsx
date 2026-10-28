@@ -4,34 +4,15 @@ import like from "../assets/images/like.svg";
 import likeFilled from "../assets/images/likeIsLiked.svg";
 import comments from "../assets/images/comment.svg";
 import share from "../assets/images/share.svg";
-import { useState } from "react";
-import Comments from "./Comments";
 import getUserColor from "../utils/getUserColor";
-import users from "../users";
 
 function Post({ post, showActivity = true }) {
-  //const user = localStorage.getItem("user");
-  const [likes, setLikes] = useState(post.likes || []);
-  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const isCommentsOpen = false;
 
   const { user: currentUser } = useSelector((state) => state.user);
-  const currentUserId = currentUser?.id || 1;
-
-  const isLiked = likes.includes(currentUserId);
-
-  const handleLike = async () => {
-    if (isLiked) {
-      setLikes(likes.filter((id) => id !== currentUserId));
-    } else {
-      setLikes([...likes, currentUserId]);
-    }
-  };
-
-  const handleAddComment = (postId, newComment) => {
-    // Временно просто добавляем в локальный массив
-    // Позже здесь будет запрос к серверу
-    console.log("Новый комментарий:", newComment);
-  };
+  const isLiked = false;
+  const likesCount = null;
+  const commentsCount = null;
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -136,7 +117,8 @@ function Post({ post, showActivity = true }) {
   };
 
   const getUserData = (userId) => {
-    return users.find((u) => String(u.id) === String(userId));
+    if (String(userId) === String(currentUser?.id)) return currentUser;
+    return post.author;
   };
 
   const user = getUserData(post.userId);
@@ -153,7 +135,13 @@ function Post({ post, showActivity = true }) {
           <Link
             to={`/profile/${post.userId}`}
             className="leftbar__link link-profile link-profile--big"
-            style={{ background: getUserColor(String(post.userId) === String(currentUser?.id) ? currentUser : user) }}
+            style={{
+              background: getUserColor(
+                String(post.userId) === String(currentUser?.id)
+                  ? currentUser
+                  : user,
+              ),
+            }}
           >
             {firstName && lastName
               ? firstName.charAt(0) + lastName.charAt(0)
@@ -180,10 +168,12 @@ function Post({ post, showActivity = true }) {
 
       <div className="post__stats">
         <div className="post__stats-likes">
-          {getLikesText(post.likes.length)}
+          {likesCount === null ? "Лайки: —" : getLikesText(likesCount)}
         </div>
         <div className="post__stats-comments">
-          {getCommentsText(post.comments.length)}
+          {commentsCount === null
+            ? "Комментарии: —"
+            : getCommentsText(commentsCount)}
         </div>
       </div>
 
@@ -192,7 +182,12 @@ function Post({ post, showActivity = true }) {
       {showActivity ? (
         <>
           <div className="post__buttons">
-            <button className="post__buttons-item" onClick={handleLike}>
+            <button
+              type="button"
+              className="post__buttons-item"
+              disabled
+              title="Лайки пока недоступны"
+            >
               <img
                 src={isLiked ? likeFilled : like}
                 alt="Лайк"
@@ -201,8 +196,10 @@ function Post({ post, showActivity = true }) {
               Лайк
             </button>
             <button
+              type="button"
               className="post__buttons-item"
-              onClick={() => setIsCommentsOpen(!isCommentsOpen)}
+              disabled
+              title="Комментарии пока недоступны"
             >
               <img
                 src={comments}
@@ -211,7 +208,12 @@ function Post({ post, showActivity = true }) {
               />
               Комментарии
             </button>
-            <button className="post__buttons-item">
+            <button
+              type="button"
+              className="post__buttons-item"
+              disabled
+              title="Поделиться пока недоступно"
+            >
               <img
                 src={share}
                 alt="Поделиться"
@@ -224,8 +226,10 @@ function Post({ post, showActivity = true }) {
       ) : (
         <div className="post__buttons">
           <button
+            type="button"
             className="post__buttons-item"
-            onClick={() => setIsCommentsOpen(!isCommentsOpen)}
+            disabled
+            title="Комментарии пока недоступны"
           >
             <img
               src={comments}
@@ -235,14 +239,6 @@ function Post({ post, showActivity = true }) {
             Комментарии
           </button>
         </div>
-      )}
-
-      {isCommentsOpen && (
-        <Comments
-          comments={post.comments}
-          postId={post.id}
-          onAddComment={handleAddComment}
-        />
       )}
     </div>
   );

@@ -2,21 +2,25 @@ import { useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import getUserColor from "../utils/getUserColor";
 import photo from "../assets/images/photo.svg";
+import { api } from "../api/client";
 
 function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
   const [text, setText] = useState("");
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const fileInputRef = useRef(null);
 
   const { user: currentUser } = useSelector((state) => state.user);
 
   const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget && !isLoading) onClose();
   };
 
   const handleImageChange = (e) => {
+    if (isLoading) return;
+    setError("");
     const file = e.target.files[0];
     if (file) {
       setImage(file);
@@ -27,38 +31,52 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
   };
 
   const handleRemoveImage = () => {
+    if (isLoading) return;
+
     setImage(null);
     setImagePreview(null);
-    fileInputRef.current.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!text.trim() && !image) return;
+
+    if (isLoading || (!text.trim() && !image)) return;
 
     setIsLoading(true);
+    setError("");
 
-    const newPost = {
-      id: crypto.randomUUID(),
-      userId: currentUser.id || 1,
-      firstName: currentUser.name || "Пользователь",
-      lastName: currentUser.lastname || "",
-      avatar: "https://i.pravatar.cc/150?img=" + (currentUser.id || 1),
-      date: new Date().toISOString(),
-      text: text.trim(),
-      image: imagePreview || null,
-      likes: [],
-      comments: [],
-    };
+    try {
+      const body = new FormData();
+      body.set("text", text.trim());
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+      if (image) {
+        body.set("image", image);
+      }
 
-    onPostSubmit(newPost);
-    setText("");
-    setImage(null);
-    setImagePreview(null);
-    setIsLoading(false);
-    onClose();
+      const newPost = await api("/api/core/posts/", {
+        method: "POST",
+        body,
+      });
+
+      onPostSubmit(newPost);
+
+      setText("");
+      setImage(null);
+      setImagePreview(null);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      onClose();
+    } catch (error) {
+      setError(error.message || "Не удалось опубликовать пост.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -69,7 +87,11 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
         <div className="create-post">
           <div className="create-post__header">
             <p>Создать пост</p>
-            <button className="create-post__close" onClick={onClose}>
+            <button
+              className="create-post__close"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               ✕
             </button>
           </div>
@@ -96,11 +118,14 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
               </div>
             </div>
 
+            {error && <p role="alert">{error}</p>}
+
             <form className="create-post__form" onSubmit={handleSubmit}>
               <textarea
                 className="create-post__input"
                 placeholder="Что у вас нового?"
                 value={text}
+                disabled={isLoading}
                 onChange={(e) => setText(e.target.value)}
                 rows={4}
               />
@@ -112,6 +137,7 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
                     type="button"
                     className="create-post__image-remove"
                     onClick={handleRemoveImage}
+                    disabled={isLoading}
                   >
                     ✕
                   </button>
@@ -122,6 +148,7 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
                 <button
                   type="button"
                   className="create-post__attach-btn"
+                  disabled={isLoading}
                   onClick={() => fileInputRef.current.click()}
                 >
                   <img src={photo} alt="" />
@@ -131,7 +158,8 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
                   type="file"
                   ref={fileInputRef}
                   onChange={handleImageChange}
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  disabled={isLoading}
                   style={{ display: "none" }}
                 />
 
