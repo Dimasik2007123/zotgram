@@ -1,40 +1,45 @@
-import chats from "../chats";
-import { useSelector } from "react-redux";
 import ChatsListItem from "./ChatsListItem.jsx";
 import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useQuery } from "../api/hooks";
+import { allPages } from "../api/client";
 
 function ChatsList() {
   const { chatId } = useParams();
-  const { user } = useSelector((state) => state.user);
-  const currentUserId = user?.id;
-  const [isShown, setIsShown] = useState(true);
+  const chats = useQuery(() => allPages("/api/chat/chats/"), "chats", "chats");
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 800);
+  const isShown = !(isMobile && chatId);
 
   useEffect(() => {
     const handleResize = () => {
-      const isMobile = window.innerWidth < 800;
-      setIsShown(!(isMobile && chatId));
+      setIsMobile(window.innerWidth < 800);
     };
 
-    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [chatId]);
+  }, []);
 
   if (!isShown) return null;
 
-  const userChats = chats.filter((chat) =>
-    chat.participants.includes(currentUserId),
-  );
+  const userChats = chats.data || [];
 
   return (
     <div className="chats-list">
       <h2 className="chats-list__title">Сообщения</h2>
+      {chats.error && (
+        <p role="alert">
+          {chats.error} <button onClick={chats.reload}>Повторить</button>
+        </p>
+      )}
+      {chats.loading && <p>Загрузка…</p>}
       <div className="chats-list__items">
         {userChats.map((chat) => (
           <ChatsListItem key={chat.id} chat={chat} />
         ))}
       </div>
+      {!chats.loading && !chats.error && userChats.length === 0 && (
+        <p>Чатов пока нет.</p>
+      )}
     </div>
   );
 }

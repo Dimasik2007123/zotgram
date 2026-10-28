@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { getDepartmentName } from "../departments";
 import getUserColor from "../utils/getUserColor";
 
 function PersonCard({ person, onMessage }) {
@@ -15,7 +14,7 @@ function PersonCard({ person, onMessage }) {
   };
 
   return (
-    <div onClick={handleCardClick} className="person">
+    <div className="person" onClick={() => handleCardClick(person.id)}>
       <div className="person__info">
         <div
           className="person__avatar"
@@ -26,20 +25,12 @@ function PersonCard({ person, onMessage }) {
             : "П"}
         </div>
         <div className="person__details">
-          <div
-            className="person__details-name"
-            title={person.name + " " + person.lastname}
-          >
-            {person.name || "Пользователь"} {person.lastname || ""}
+          <div className="person__details-name">
+            {person.name} {person.lastname}
           </div>
-          <div className="person__details-email" title={person.email || ""}>
-            {person.email || ""}
-          </div>
-          <div
-            className="person__details-department"
-            title={getDepartmentName(person.department) || ""}
-          >
-            {getDepartmentName(person.department)}
+          <div className="person__details-email">{person.email}</div>
+          <div className="person__details-department">
+            {person.departmentName || "Отдел не указан"}
           </div>
         </div>
       </div>

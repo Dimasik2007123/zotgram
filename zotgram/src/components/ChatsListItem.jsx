@@ -2,27 +2,27 @@ import { useSelector } from "react-redux";
 import { Link, useParams } from "react-router-dom";
 
 import getUserColor from "../utils/getUserColor";
-import { getUnreadCount } from "../utils/getUnreadCount";
-import users from "../users";
-import messages from "../messages";
+import { usePeople } from "../api/hooks";
 import fileIcon from "../assets/images/file.svg";
 import photoIcon from "../assets/images/photo.svg";
+import defaultGroup from "../assets/images/default-group.png";
 
 function ChatsListItem({ chat }) {
   const { chatId } = useParams();
   const isGroupChat = chat.type === "group";
   const currentUser = useSelector((state) => state.user.user);
+  const lastMessage = chat.lastMessage;
+  const people = usePeople(
+    isGroupChat ? [lastMessage?.authorId] : chat.participants,
+  );
+  const avatar = "";
 
   const getCompanion = () => {
     const companionId = chat.participants.find((id) => id !== currentUser.id);
-    return users.find((u) => String(u.id) === String(companionId));
+    return people.data?.find((user) => String(user.id) === String(companionId));
   };
 
   const companion = !isGroupChat ? getCompanion() : null;
-
-  const lastMessage = messages
-    .filter((m) => m.chatId === chat.id)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -59,17 +59,21 @@ function ChatsListItem({ chat }) {
   const getLastMessageText = () => {
     if (!lastMessage) return "Нет сообщений";
 
-    const author = users.find(
-      (u) => String(u.id) === String(lastMessage.authorId),
-    );
+    const author =
+      String(lastMessage.authorId) === String(currentUser.id)
+        ? currentUser
+        : people.data?.find(
+            (user) => String(user.id) === String(lastMessage.authorId),
+          );
     const authorName = author?.name || "Пользователь";
 
     const isOwnMessage =
       String(lastMessage.authorId) === String(currentUser.id);
     const prefix = isOwnMessage ? "Вы: " : `${authorName}: `;
 
-    if (lastMessage.type === "file" || lastMessage.type === "image") {
-      const isImage = lastMessage.type === "image";
+    const attachment = lastMessage.attachment;
+    if (attachment) {
+      const isImage = attachment.mime?.startsWith("image/") || false;
       return (
         <>
           {prefix}
@@ -78,14 +82,14 @@ function ChatsListItem({ chat }) {
             src={isImage ? photoIcon : fileIcon}
             alt=""
           />
-          {isImage ? "Изображение" : "Файл"}
+          {lastMessage.content || (isImage ? "Изображение" : "Файл")}
         </>
       );
     }
     return `${prefix}${lastMessage.content}`;
   };
 
-  const unreadCount = getUnreadCount(chat.id, currentUser.id);
+  const unreadCount = 0;
 
   return (
     <Link
@@ -94,13 +98,7 @@ function ChatsListItem({ chat }) {
     >
       <div className="chats-list-item__avatar">
         {isGroupChat ? (
-          <img
-            src={
-              chat.avatar ||
-              "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
-            }
-            alt={chat.name}
-          />
+          <img src={avatar || defaultGroup} alt={chat.name} />
         ) : (
           <div
             className="chats-list-item__avatar-placeholder"
@@ -117,7 +115,9 @@ function ChatsListItem({ chat }) {
         <div className="chats-list-item__name">
           {isGroupChat
             ? chat.name
-            : `${companion?.name || ""} ${companion?.lastname || ""}`}
+            : companion
+              ? `${companion.name} ${companion.lastname}`
+              : "Личный чат"}
         </div>
         <div className="chats-list-item__last-message">
           {getLastMessageText()}

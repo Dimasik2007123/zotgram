@@ -54,21 +54,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-SIMPLE_JWT = {
-    "ALGORITHM": "RS256",
-    "SIGNING_KEY": "",
-    "VERIFYING_KEY": (BASE_DIR.parent / "keys/core-public.pem").read_text(),
-    "ISSUER": "zotgram-core",
-    "AUDIENCE": "zotgram-api",
-    "USER_ID_CLAIM": "user_id",
-}
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTStatelessUserAuthentication",
-    ],
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
-    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework_simplejwt.authentication.JWTStatelessUserAuthentication"],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_PAGINATION_CLASS": "system.pagination.Pages", "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle", "rest_framework.throttling.AnonRateThrottle"],
+    "DEFAULT_THROTTLE_RATES": {"user": "600/min", "anon": "60/min"},
 }
 
 ROOT_URLCONF = 'chat_config.urls'
@@ -88,16 +79,9 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'chat_config.wsgi.application'
 ASGI_APPLICATION = 'chat_config.asgi.application'
 SESSION_COOKIE_NAME = 'chat_sessionid'
 CSRF_COOKIE_NAME = 'chat_csrftoken'
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [env("REDIS_URL")]},
-    },
-}
 
 
 # Database
@@ -128,11 +112,29 @@ USE_TZ = True
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
                                 "http://localhost:3000"])
 
+WS_ORIGINS = env.list("WS_ORIGINS", default=["http://localhost:3000"])
 
+REDIS_URL = env("REDIS_URL", default="redis://127.0.0.1:6379/0")
+
+CORE_INTERNAL_URL = env("CORE_INTERNAL_URL", default="http://127.0.0.1:8000")
+
+CHANNEL_LAYERS = {"default": {
+    "BACKEND": "channels_redis.core.RedisChannelLayer", "CONFIG": {"hosts": [REDIS_URL]}}}
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
+
+KEYS_DIR = Path(env("JWT_KEYS_DIR", default=str(BASE_DIR.parent / "keys")))
+public_key = KEYS_DIR / "core-public.pem"
+
+SIMPLE_JWT = {"ALGORITHM": "RS256", "SIGNING_KEY": "",
+              "VERIFYING_KEY": public_key.read_text(encoding="ascii")
+              if public_key.exists() else "", "ISSUER": "zotgram-core",
+              "AUDIENCE": "zotgram-api", "USER_ID_CLAIM": "user_id", }
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

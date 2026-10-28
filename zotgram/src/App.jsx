@@ -10,6 +10,7 @@ import Footer from "./components/Footer";
 import Content from "./components/Content";
 import CreatePostModal from "./components/CreatePostModal";
 import { changed } from "./api/client";
+import { startRealtime } from "./api/realtime";
 
 function App() {
   //const location = useLocation();
@@ -26,6 +27,10 @@ function App() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) return startRealtime();
+  }, [isAuthenticated]);
 
   const handlePostSubmit = () => {
     changed("posts");

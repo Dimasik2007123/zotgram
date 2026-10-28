@@ -1,85 +1,103 @@
-import { useParams, Link } from "react-router";
-import { users } from "../users";
-import { useState, useEffect } from "react";
+import localPosts from "../posts";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { updateUser } from "../store/userReducer";
+import { api, changed } from "../api/client";
+import { useQuery } from "../api/hooks";
 import { logoutSession } from "../api/session";
-import posts from "../posts";
+import { updateUser } from "../store/userReducer";
+import { openDirectChat } from "../api/chats";
 import Post from "../components/Post";
-
 import save from "../assets/images/save.svg";
 import logout_image from "../assets/images/logout.svg";
-
 import getUserColor from "../utils/getUserColor";
 
-import { departments, getDepartmentName } from "../departments";
-
-function Profile() {
+function ProfileContent({ userId }) {
   const dispatch = useDispatch();
-  const { user: currentUser } = useSelector((state) => state.user);
-
-  const { userId } = useParams();
-  const isCurrentUser = String(userId) === String(currentUser.id);
-
+  const navigate = useNavigate();
+  const currentUser = useSelector((state) => state.user.user);
+  const isCurrentUser = String(userId) === String(currentUser?.id);
+  const profile = useQuery(
+    () => api(`/api/core/users/${userId}/`),
+    userId,
+    "profiles",
+  );
+  const departments = useQuery(
+    () => api("/api/core/departments/"),
+    "departments",
+  );
+  const posts = localPosts;
+  const [draft, setDraft] = useState({});
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
-
-  const [profileUser, setProfileUser] = useState(
-    () => users.find((user) => String(user.id) === String(userId)) || null,
-  );
-
-  useEffect(() => {
-    const foundUser = users.find((user) => String(user.id) === String(userId));
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProfileUser(foundUser || null);
-  }, [userId]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const profileUser = profile.data ? { ...profile.data, ...draft } : null;
+  const isFollowing = profile.data?.followers?.includes(currentUser?.id) || false;
 
   async function handleLogout() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
     try {
       await logoutSession();
+      navigate("/login", { replace: true });
     } catch (error) {
-      window.alert(error.message || "Не удалось выйти. Попробуй снова.");
+      setError(error.message || "Не удалось выйти. Попробуй снова.");
+    } finally {
+      setBusy(false);
     }
   }
 
   const handleSave = (field, value) => {
-    if (!value.trim()) return;
-
-    dispatch(updateUser({ [field]: value }));
-
-    setProfileUser((prev) => ({ ...prev, [field]: value }));
-
+    if (!isCurrentUser || busy) return;
+    const nextValue = field === "birthDate" || field === "department" ? value || null : value;
+    setDraft((previous) => ({ ...previous, [field]: nextValue }));
     setEditingField(null);
     setEditValue("");
   };
 
-  const [isFollowing, setIsFollowing] = useState(() => {
-    if (!profileUser) return false;
-    const currentUserData = users.find(
-      (u) => String(u.id) === String(currentUser.id),
-    );
-    return currentUserData?.following?.includes(profileUser.id) || false;
-  });
-
-  if (!profileUser) {
-    return (
-      <div className="profile-error">
-        <h2>Пользователь не найден</h2>
-        <Link to="/">Вернуться на главную</Link>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return <div className="profile-error">Вы не авторизованы</div>;
-  }
-
-  const handleFollowToggle = () => {
-    setIsFollowing(!isFollowing);
+  const handleSaveAll = async () => {
+    if (!isCurrentUser || busy || !profileUser) return;
+    const body = {};
+    ["name", "lastname", "email", "phone", "bio"].forEach((field) => {
+      body[field] = profileUser[field] || "";
+    });
+    body.birthDate = profileUser.birthDate || null;
+    body.department = profileUser.department || null;
+    if (editingField) {
+      body[editingField] = editingField === "birthDate" || editingField === "department"
+        ? editValue || null : editValue;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api("/api/core/me/", { method: "PATCH", body });
+      dispatch(updateUser(updated));
+      setDraft(updated);
+      setEditingField(null);
+      setEditValue("");
+      changed("profiles");
+    } catch (error) {
+      setError(error.message || "Не удалось сохранить профиль.");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleMessage = (userId) => {
-    console.log(`Начать чат с пользователем ${userId}`);
+
+  const handleMessage = async (recipientId) => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const chatId = await openDirectChat(recipientId);
+      navigate(`/chats/${chatId}`);
+    } catch (error) {
+      setError(error.message || "Не удалось открыть чат.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const startEditing = (field, value) => {
@@ -87,22 +105,25 @@ function Profile() {
     setEditValue(value || "");
   };
 
-  const handleKeyDown = (e, field) => {
-    if (e.key === "Enter") {
+  const handleKeyDown = (event, field) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
       handleSave(field, editValue);
     }
-    if (e.key === "Escape") {
+    if (event.key === "Escape") {
+      event.preventDefault();
       setEditingField(null);
       setEditValue("");
     }
   };
 
   const renderField = (label, field, value) => {
-    if (!isCurrentUser && label === "О себе") return;
+    if (!isCurrentUser && field === "bio") return null;
     const isEditing = editingField === field;
-
     const isDepartment = field === "department";
-
+    const departmentName = departments.data?.find((department) => department.id === value)?.name
+      || (value === profile.data.department ? profile.data.departmentName : "")
+      || "Не указан";
     return (
       <div className="profile__field">
         <strong>{label}:</strong>
@@ -110,69 +131,73 @@ function Profile() {
           isDepartment ? (
             <select
               className="profile__input"
+              aria-label={label}
               value={editValue || ""}
-              onChange={(e) => {
-                setEditValue(e.target.value);
-                handleSave(field, e.target.value);
-              }}
-              onBlur={() => handleSave(field, editValue)}
+              onChange={(event) => handleSave(field, event.target.value)}
               autoFocus
+              disabled={busy}
             >
-              {departments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name}
-                </option>
+              <option value="">Не указан</option>
+              {departments.data?.map((department) => (
+                <option key={department.id} value={department.id}>{department.name}</option>
               ))}
             </select>
           ) : (
             <input
-              type="text"
+              type={field === "birthDate" ? "date" : field === "email" ? "email" : "text"}
               className="profile__input"
+              aria-label={label}
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={() => handleSave(field, editValue)}
-              onKeyDown={(e) => handleKeyDown(e, field)}
+              onChange={(event) => setEditValue(event.target.value)}
+              onBlur={(event) => handleSave(field, event.target.value)}
+              onKeyDown={(event) => handleKeyDown(event, field)}
               autoFocus
-              required
+              disabled={busy}
             />
           )
         ) : (
-          <span className="profile__value">
-            {isDepartment ? getDepartmentName(value) : value || "Не указано"}
-          </span>
+          <span className="profile__value">{isDepartment ? departmentName : value || "Не указано"}</span>
         )}
         {isCurrentUser && !isEditing && (
           <button
+            type="button"
             className="profile__edit-icon"
             onClick={() => startEditing(field, value)}
             title="Редактировать"
-          >
-            ✏️
-          </button>
+            aria-label={`Редактировать: ${label}`}
+            disabled={busy || (isDepartment && departments.loading)}
+          >✏️</button>
         )}
       </div>
     );
   };
 
+  if (!currentUser) return <div className="profile-error">Вы не авторизованы</div>;
+  if (profile.loading) return <div className="profile-error">Загрузка профиля…</div>;
+  if (!profileUser) {
+    return (
+      <div className="profile-error">
+        <h2>{profile.error || "Пользователь не найден"}</h2>
+        <Link to="/">Вернуться на главную</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="profile">
       <div className="profile__header">
         <div className="profile__avatar">
-          <div
-            className="profile__avatar-placeholder"
-            style={{ background: getUserColor(isCurrentUser ? currentUser : profileUser) }}
-          >
-            {profileUser.name?.charAt(0) || "П"}
-            {profileUser.lastname?.charAt(0) || ""}
+          <div className="profile__avatar-placeholder" style={{ background: getUserColor(profileUser) }}>
+            {profileUser.name?.charAt(0) || "П"}{profileUser.lastname?.charAt(0) || ""}
           </div>
         </div>
-
-        <h1>
-          {profileUser.name} {profileUser.lastname}
-        </h1>
+        <h1>{profileUser.name} {profileUser.lastname}</h1>
         <p className="profile__bio">{profileUser.bio || "Нет описания"}</p>
       </div>
 
+      {error && <p role="alert">{error}</p>}
+      {profile.error && <p role="alert">{profile.error}</p>}
+      {departments.error && <p role="alert">{departments.error}</p>}
       <div className="profile__info">
         {renderField("Имя", "name", profileUser.name)}
         {renderField("Фамилия", "lastname", profileUser.lastname)}
@@ -185,52 +210,38 @@ function Profile() {
 
       {isCurrentUser ? (
         <div className="profile__actions">
-          <button
-            className="profile__save-all-btn"
-            onClick={() => location.reload()}
-          >
-            <img
-              src={save}
-              alt="Сохранить"
-              className="header__menu-link-image"
-            />
+          <button className="profile__save-all-btn" disabled={busy} onClick={handleSaveAll}>
+            <img src={save} alt="Сохранить" className="header__menu-link-image" />
             Сохранить все изменения
           </button>
-          <button className="profile__logout-btn" onClick={handleLogout}>
-            <img
-              src={logout_image}
-              alt="Выйти"
-              className="header__menu-link-image"
-            />
+          <button className="profile__logout-btn" disabled={busy} onClick={handleLogout}>
+            <img src={logout_image} alt="Выйти" className="header__menu-link-image" />
             Выйти из аккаунта
           </button>
         </div>
       ) : (
         <div className="profile__actions">
-          <button
-            className="profile__send-message-btn"
-            onClick={handleMessage(profileUser.id)}
-          >
+          <button className="profile__send-message-btn" disabled={busy} onClick={() => handleMessage(profileUser.id)}>
             Перейти в чат
           </button>
-          <button
-            className={`profile__follow-btn ${isFollowing ? "following" : ""}`}
-            onClick={handleFollowToggle}
-          >
+          <button className={`profile__follow-btn ${isFollowing ? "following" : ""}`} disabled title="Подписки пока недоступны">
             {isFollowing ? "Отписаться" : "Подписаться"}
           </button>
         </div>
       )}
 
       <div className="profile__posts-list">
-        {posts
-          .filter((post) => String(post.userId) === String(profileUser.id))
-          .map((post) => (
-            <Post key={post.id} post={post} showActivity={!isCurrentUser} />
-          ))}
+        {posts.filter((post) => String(post.userId) === String(profileUser.id)).map((post) => (
+          <Post key={post.id} post={post} showActivity={!isCurrentUser} />
+        ))}
       </div>
     </div>
   );
+}
+
+function Profile() {
+  const { userId } = useParams();
+  return <ProfileContent key={userId} userId={userId} />;
 }
 
 export default Profile;
