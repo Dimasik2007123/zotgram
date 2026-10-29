@@ -9,6 +9,10 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     proxy: {
+      "/admin/chat": { target: "http://127.0.0.1:8001", changeOrigin: true },
+      "/admin": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/static/chat": { target: "http://127.0.0.1:8001", changeOrigin: true },
+      "/static/core": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/api/core": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/api/chat": { target: "http://127.0.0.1:8001", changeOrigin: true },
       "/ws": { target: "ws://127.0.0.1:8001", ws: true },
