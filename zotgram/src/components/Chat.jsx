@@ -38,10 +38,7 @@ function Attachment({ file, onImageLoad }) {
             {file.name}
           </a>
         ) : (
-          <span
-            className="status-message status-message--inline status-message--loading"
-            role="status"
-          >
+          <span className="status-message status-message--inline" role="status">
             Загрузка файла
           </span>
         )}
