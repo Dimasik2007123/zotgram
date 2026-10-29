@@ -1,5 +1,5 @@
 .profile {
-  max-width: 1000px;
+  width: minmax(100%, 400px);
   margin: 0 auto;
   padding: 16px;
   box-sizing: border-box;
@@ -185,36 +185,12 @@
 .profile__posts-list {
   display: flex;
   flex-direction: column;
+  gap: 15px;
   margin-top: 16px;
 }
 
 .profile__posts-list .post:last-child {
   margin-bottom: 0;
-}
-
-.profile-error {
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.profile-error h2 {
-  font-size: 18px;
-  color: #1a1a1a;
-  margin-bottom: 12px;
-}
-
-.profile-error a {
-  display: inline-block;
-  padding: 8px 20px;
-  background: #4a6cf7;
-  color: #fff;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 14px;
-}
-
-.profile-error a:hover {
-  background: #3a5bd9;
 }
 
 @media (max-width: 480px) {

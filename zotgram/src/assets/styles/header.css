@@ -183,6 +183,28 @@
   cursor: pointer;
 }
 
+.header__right-link.link-profile {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  padding: 0;
+  gap: 0;
+  line-height: 1;
+}
+
+.header__profile-initials {
+  display: block;
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+}
+
+@supports not (text-box-trim: trim-both) {
+  .header__profile-initials {
+    transform: translateY(1px);
+  }
+}
+
 .link-profile {
   border-radius: 50%;
   text-decoration: none;

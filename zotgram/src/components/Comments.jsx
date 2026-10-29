@@ -1,39 +1,74 @@
+import statusText from "../utils/statusText";
 import send from "../assets/images/send.svg";
 import { useState } from "react";
 import { useSelector } from "react-redux";
+import { useQuery } from "../api/hooks";
+import { api, allPages } from "../api/client";
 import { Link } from "react-router-dom";
 import getUserColor from "../utils/getUserColor";
-import users from "../users";
 
-function Comments({ comments, postId, onAddComment }) {
+function Comments({ postId, onAdded }) {
   const [newComment, setNewComment] = useState("");
   const { user: currentUser } = useSelector((state) => state.user);
+  const commentsState = useQuery(
+    () => allPages(`/api/core/posts/${postId}/comments/`),
+    postId,
+  );
+  const comments = commentsState.data || [];
+  const [busy, setBusy] = useState(false);
+  const [sendError, setSendError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (newComment.trim() === "") return;
+    if (busy || newComment.trim() === "") return;
 
-    //const user = users.find((u) => String(u.id) === String(currentUser.id));
 
-    const comment = {
-      id: crypto.randomUUID(),
-      userId: currentUser.id || 1,
-      text: newComment.trim(),
-    };
+    setBusy(true);
+    setSendError("");
 
-    onAddComment(postId, comment);
-    setNewComment("");
+    try {
+      await api(`/api/core/posts/${postId}/comments/`, {
+        method: "POST",
+        body: { text: newComment.trim() },
+      });
+      setNewComment("");
+      onAdded?.();
+      commentsState.reload();
+    } catch (error) {
+      setSendError(statusText(error.message || "Не удалось отправить комментарий"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const getUserData = (userId) => {
-    return users.find((u) => String(u.id) === String(userId));
+    if (String(userId) === String(currentUser?.id)) return currentUser;
+    return comments.find((comment) => String(comment.userId) === String(userId))
+      ?.author;
   };
 
   return (
     <div className="comments">
       <div className="comments__list">
-        {comments.length === 0 ? (
-          <p className="comments__empty">Нет комментариев</p>
+        {commentsState.loading && (
+          <p className="status-message" role="status">
+            Загрузка комментариев
+          </p>
+        )}
+        {commentsState.error && (
+          <div className="status-message" role="alert">
+            <p className="status-message__text">{commentsState.error}</p>
+            <button
+              type="button"
+              className="status-message__action"
+              onClick={commentsState.reload}
+            >
+              Повторить
+            </button>
+          </div>
+        )}
+        {!comments.length && !commentsState.loading && !commentsState.error ? (
+          <p className="status-message">Нет комментариев</p>
         ) : (
           comments.map((comment) => {
             const isMyComment =
@@ -43,6 +78,7 @@ function Comments({ comments, postId, onAddComment }) {
 
             const firstName = user?.name || "Пользователь";
             const lastName = user?.lastname || "";
+            const date = new Date(comment.date);
 
             if (!isMyComment) {
               return (
@@ -50,7 +86,11 @@ function Comments({ comments, postId, onAddComment }) {
                   <Link
                     to={`/profile/${comment.userId}`}
                     className="comments__avatar"
-                    style={{ background: getUserColor(isMyComment ? currentUser : user) }}
+                    style={{
+                      background: getUserColor(
+                        isMyComment ? currentUser : user,
+                      ),
+                    }}
                   >
                     {firstName && lastName
                       ? firstName.charAt(0) + lastName.charAt(0)
@@ -61,6 +101,12 @@ function Comments({ comments, postId, onAddComment }) {
                       {firstName || "Пользователь"} {lastName || ""}
                     </div>
                     <div className="comments__text">{comment.text}</div>
+                    <div className="chat__message-time">
+                      {date.toLocaleDateString("ru-RU", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
                   </div>
                 </div>
               );
@@ -72,11 +118,22 @@ function Comments({ comments, postId, onAddComment }) {
                       {firstName || "Пользователь"} {lastName || ""}
                     </div>
                     <div className="comments__text">{comment.text}</div>
+
+                    <div className="chat__message-time">
+                      {date.toLocaleDateString("ru-RU", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
                   </div>
                   <Link
                     to={`/profile/${comment.userId}`}
                     className="comments__avatar"
-                    style={{ background: getUserColor(isMyComment ? currentUser : user) }}
+                    style={{
+                      background: getUserColor(
+                        isMyComment ? currentUser : user,
+                      ),
+                    }}
                   >
                     {firstName && lastName
                       ? firstName.charAt(0) + lastName.charAt(0)
@@ -89,6 +146,11 @@ function Comments({ comments, postId, onAddComment }) {
         )}
       </div>
 
+      {sendError && (
+        <p className="status-message" role="alert">
+          {sendError}
+        </p>
+      )}
       <form className="comments__form" onSubmit={handleSubmit}>
         <Link
           to={`/profile/${currentUser.id}`}
@@ -104,6 +166,8 @@ function Comments({ comments, postId, onAddComment }) {
           type="text"
           className="comments__input"
           placeholder="Текст комментария..."
+          disabled={busy}
+          maxLength={3000}
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
         />

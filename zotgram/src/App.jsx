@@ -1,19 +1,22 @@
-// App.jsx
 import "./assets/styles/main.css";
-import "./assets/styles/fonts.css";
 
 import { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { startMessageNotifications } from "./api/notifications";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import Content from "./components/Content";
 import CreatePostModal from "./components/CreatePostModal";
 import { changed } from "./api/client";
 import { startRealtime } from "./api/realtime";
+import { startChatUpdates } from "./api/chatUpdates";
 
 function App() {
-  //const location = useLocation();
+  const dispatch = useDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const userId = useSelector((state) => state.user.user?.id);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -29,15 +32,42 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) return startRealtime();
-  }, [isAuthenticated]);
+    if (!isAuthenticated) return;
+    const stopUpdates = startChatUpdates(dispatch);
+    const stopRealtime = startRealtime();
+    return () => {
+      stopUpdates();
+      stopRealtime();
+    };
+  }, [dispatch, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return;
+
+    return startMessageNotifications(userId, navigate);
+  }, [isAuthenticated, userId, navigate]);
 
   const handlePostSubmit = () => {
     changed("posts");
   };
 
-  if (loading) return <div className="loading-screen">Загрузка...</div>;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (loading)
+    return (
+      <div className="status-message status-message--page" role="status">
+        Загрузка
+      </div>
+    );
+  if (!isAuthenticated) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{
+          from: location.pathname + location.search + location.hash,
+        }}
+      />
+    );
+  }
 
   return (
     <div className="app">

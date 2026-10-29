@@ -1,3 +1,4 @@
+import statusText from "../utils/statusText";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
@@ -50,7 +51,7 @@ function ProfileContent({ userId }) {
       await logoutSession();
       navigate("/login", { replace: true });
     } catch (error) {
-      setError(error.message || "Не удалось выйти. Попробуй снова.");
+      setError(statusText(error.message || "Не удалось выйти. Попробуй снова"));
     } finally {
       setBusy(false);
     }
@@ -92,7 +93,7 @@ function ProfileContent({ userId }) {
       setSuccess("Изменения сохранены");
       changed("profiles");
     } catch (error) {
-      setError(error.message || "Не удалось сохранить профиль.");
+      setError(statusText(error.message || "Не удалось сохранить профиль"));
     } finally {
       setBusy(false);
     }
@@ -111,7 +112,7 @@ function ProfileContent({ userId }) {
       changed("profiles");
       changed("posts");
     } catch (error) {
-      setError(error.message || "Не удалось изменить подписку.");
+      setError(statusText(error.message || "Не удалось изменить подписку"));
     } finally {
       setBusy(false);
     }
@@ -125,7 +126,7 @@ function ProfileContent({ userId }) {
       const chatId = await openDirectChat(recipientId);
       navigate(`/chats/${chatId}`);
     } catch (error) {
-      setError(error.message || "Не удалось открыть чат.");
+      setError(statusText(error.message || "Не удалось открыть чат"));
     } finally {
       setBusy(false);
     }
@@ -218,14 +219,14 @@ function ProfileContent({ userId }) {
   };
 
   if (!currentUser)
-    return <div className="profile-error">Вы не авторизованы</div>;
+    return <div className="status-message status-message--page">Вы не авторизованы</div>;
   if (profile.loading)
-    return <div className="profile-error">Загрузка профиля…</div>;
+    return <div className="status-message status-message--page" role="status">Загрузка профиля</div>;
   if (!profileUser) {
     return (
-      <div className="profile-error">
-        <h2>{profile.error || "Пользователь не найден"}</h2>
-        <Link to="/">Вернуться на главную</Link>
+      <div className="status-message status-message--page">
+        <p className="status-message__text">{profile.error || "Пользователь не найден"}</p>
+        <Link to="/" className="status-message__action">Вернуться на главную</Link>
       </div>
     );
   }
@@ -248,14 +249,14 @@ function ProfileContent({ userId }) {
         <p className="profile__bio">{profileUser.bio || "Нет описания"}</p>
       </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="status-message" role="alert">{error}</p>}
       {isCurrentUser && success && (
         <p className="profile__success" role="status">
           {success}
         </p>
       )}
-      {profile.error && <p role="alert">{profile.error}</p>}
-      {departments.error && <p role="alert">{departments.error}</p>}
+      {profile.error && <p className="status-message" role="alert">{profile.error}</p>}
+      {departments.error && <p className="status-message" role="alert">{departments.error}</p>}
       <div className="profile__info">
         {renderField("Имя", "name", profileUser.name)}
         {renderField("Фамилия", "lastname", profileUser.lastname)}
@@ -313,23 +314,23 @@ function ProfileContent({ userId }) {
       )}
 
       <div className="profile__posts-list">
-        {postsState.loading && <p>Загрузка публикаций…</p>}
+        {postsState.loading && <p className="status-message" role="status">Загрузка публикаций</p>}
 
         {postsState.error && (
-          <p role="alert">
-            {postsState.error}
+          <div className="status-message" role="alert">
+            <p className="status-message__text">{postsState.error}</p>
             <button
               type="button"
-              className="feed__retry-btn"
+              className="status-message__action"
               onClick={postsState.reload}
             >
               Повторить
             </button>
-          </p>
+          </div>
         )}
 
         {!postsState.loading && !postsState.error && posts.length === 0 && (
-          <p>Публикаций пока нет.</p>
+          <p className="status-message">Публикаций пока нет</p>
         )}
 
         {posts.map((post) => (

@@ -3,8 +3,6 @@ from colorsys import hsv_to_rgb
 from random import randint
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-# Create your models here.
-
 
 def random_user_color():
     hue = randint(0, 359) / 360
@@ -13,14 +11,12 @@ def random_user_color():
     red, green, blue = hsv_to_rgb(hue, saturation, brightness)
     return f"#{round(red * 255):02X}{round(green * 255):02X}{round(blue * 255):02X}"
 
-
 class Department(models.Model):
     id = models.SlugField(primary_key=True, max_length=60)
     name = models.CharField(max_length=100)
 
     def __str__(self):
         return self.name
-
 
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
@@ -33,7 +29,6 @@ class User(AbstractUser):
     birth_date = models.DateField(null=True, blank=True)
     avatar_color = models.CharField(
         max_length=7, default=random_user_color, editable=False)
-
 
 class Follow(models.Model):
     follower = models.ForeignKey(

@@ -1,7 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { useQuery } from "../api/hooks";
-import { api, allPages } from "../api/client";
+import { useChats, useQuery } from "../api/hooks";
+import { api } from "../api/client";
 import getUserColor from "../utils/getUserColor";
 
 function LeftBar() {
@@ -10,11 +10,10 @@ function LeftBar() {
     () => api("/api/core/departments/"),
     "departments",
   );
-  const chats = useQuery(
-    () => (user?.department ? allPages("/api/chat/chats/") : Promise.resolve([])),
-    user?.department || "",
-    "chats profiles",
-  );
+  const chats = useChats();
+
+  const generalChat = chats.data?.find((chat) => chat.systemKey === "general");
+
   return (
     <div className="leftbar">
       <div className="user-info">
@@ -39,20 +38,50 @@ function LeftBar() {
 
       <div className="leftbar-departments">
         <div className="leftbar-departments__title">ОТДЕЛЫ</div>
-        {departments.loading && <p>Загрузка отделов…</p>}
-        {departments.error && <p role="alert">{departments.error}</p>}
-        {chats.loading && <p>Загрузка чатов отделов…</p>}
-        {chats.error && (
-          <p role="alert">
-            {chats.error}{" "}
-            <button type="button" onClick={chats.reload}>Повторить</button>
+        {departments.loading && (
+          <p className="status-message" role="status">
+            Загрузка отделов
           </p>
         )}
+        {departments.error && (
+          <p className="status-message" role="alert">
+            {departments.error}
+          </p>
+        )}
+        {chats.loading && (
+          <p className="status-message" role="status">
+            Загрузка чатов отделов
+          </p>
+        )}
+        {chats.error && (
+          <div className="status-message" role="alert">
+            <p className="status-message__text">{chats.error}</p>
+            <button
+              type="button"
+              className="status-message__action"
+              onClick={chats.reload}
+            >
+              Повторить
+            </button>
+          </div>
+        )}
         <ul className="leftbar-departments__list">
+          {generalChat && (
+            <li className="leftbar-departments__item">
+              <NavLink
+                to={`/chats/${generalChat.id}`}
+                end
+                className="leftbar-departments__link"
+              >
+                Общий чат
+              </NavLink>
+            </li>
+          )}
           {departments.data?.map((department) => {
             const isOwnDepartment = department.id === user?.department;
             const chat = chats.data?.find(
-              (item) => item.type === "group" && item.departmentId === department.id,
+              (item) =>
+                item.type === "group" && item.departmentId === department.id,
             );
 
             return (
@@ -71,7 +100,11 @@ function LeftBar() {
                   <span
                     className="leftbar-departments__link leftbar-departments__link--disabled"
                     aria-disabled="true"
-                    title={isOwnDepartment ? "Чат отдела пока недоступен" : "Доступно сотрудникам этого отдела"}
+                    title={
+                      isOwnDepartment
+                        ? "Чат отдела пока недоступен"
+                        : "Доступно сотрудникам этого отдела"
+                    }
                   >
                     {department.name}
                   </span>

@@ -1,0 +1,124 @@
+name: zotgram-full
+
+services:
+  core-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: core_db
+      POSTGRES_USER: core_user
+      POSTGRES_PASSWORD: core_dev_only
+    volumes:
+      - core-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U core_user -d core_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  chat-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: chat_db
+      POSTGRES_USER: chat_user
+      POSTGRES_PASSWORD: chat_dev_only
+    volumes:
+      - chat-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat_user -d chat_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  core:
+    build: ./backend/core
+    env_file: ./backend/core/.env
+    environment:
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,core
+      DATABASE_URL: postgresql://core_user:core_dev_only@core-db:5432/core_db
+      JWT_KEYS_DIR: /run/zotgramkeys
+      YANDEX_REDIRECT_URI: http://localhost:8080/auth/callback
+      CSRF_TRUSTED_ORIGINS: http://localhost:8080
+      COOKIE_SECURE: "False"
+    volumes:
+      - ./backend/keys/core-private.pem:/run/zotgramkeys/core-private.pem:ro
+      - ./backend/keys/core-public.pem:/run/zotgramkeys/core-public.pem:ro
+      - core-media:/app/media
+      - core-static:/app/staticfiles
+    command:
+      [
+        "sh",
+        "-c",
+        "python manage.py collectstatic --noinput && python -m daphne -b 0.0.0.0 -p 8000 core_config.asgi:application",
+      ]
+    depends_on:
+      core-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/core/health/')",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+  chat:
+    build: ./backend/chat
+    env_file: ./backend/chat/.env
+    environment:
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,chat
+      DATABASE_URL: postgresql://chat_user:chat_dev_only@chat-db:5432/chat_db
+      CORE_INTERNAL_URL: http://core:8000
+      REDIS_URL: redis://redis:6379/0
+      JWT_KEYS_DIR: /run/zotgramkeys
+      WS_ORIGINS: http://localhost:8080
+    volumes:
+      - ./backend/keys/core-public.pem:/run/zotgramkeys/core-public.pem:ro
+      - chat-media:/app/media
+    depends_on:
+      chat-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/chat/health/')",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+  nginx:
+    build:
+      context: ./zotgram
+      dockerfile: ../infra/frontend.Dockerfile
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - core-media:/srv/core-media:ro
+      - core-static:/srv/core-static:ro
+    depends_on:
+      core:
+        condition: service_healthy
+      chat:
+        condition: service_healthy
+
+volumes:
+  core-data:
+  chat-data:
+  core-media:
+  chat-media:
+  core-static:

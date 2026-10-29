@@ -2,7 +2,7 @@ import { useSelector } from "react-redux";
 import { Link, useParams } from "react-router-dom";
 
 import getUserColor from "../utils/getUserColor";
-import { usePeople } from "../api/hooks";
+import { usePeople, usePrivateFile } from "../api/hooks";
 import fileIcon from "../assets/images/file.svg";
 import photoIcon from "../assets/images/photo.svg";
 import defaultGroup from "../assets/images/default-group.png";
@@ -15,7 +15,9 @@ function ChatsListItem({ chat }) {
   const people = usePeople(
     isGroupChat ? [lastMessage?.authorId] : chat.participants,
   );
-  const avatar = "";
+  const avatar = usePrivateFile(
+    chat.avatar ? `${chat.avatar}?v=${encodeURIComponent(chat.updatedAt)}` : "",
+  );
 
   const getCompanion = () => {
     const companionId = chat.participants.find((id) => id !== currentUser.id);
@@ -28,7 +30,6 @@ function ChatsListItem({ chat }) {
     const date = new Date(dateString);
     const now = new Date();
 
-    // Обнуляем время для корректного сравнения дней
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const messageDate = new Date(
       date.getFullYear(),
@@ -89,7 +90,7 @@ function ChatsListItem({ chat }) {
     return `${prefix}${lastMessage.content}`;
   };
 
-  const unreadCount = 0;
+  const unreadCount = chat.unreadCount || 0;
 
   return (
     <Link
@@ -129,7 +130,9 @@ function ChatsListItem({ chat }) {
           {lastMessage ? formatDate(lastMessage.createdAt) : ""}
         </div>
         {unreadCount > 0 && (
-          <div className="chats-list-item__unread">{unreadCount}</div>
+          <div className="chats-list-item__unread">
+            <span className="chats-list-item__unread-value">{unreadCount}</span>
+          </div>
         )}
       </div>
     </Link>

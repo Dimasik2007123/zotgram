@@ -19,6 +19,7 @@ dist-ssr/
 
 # Local checks and editor files
 .tmp/
+.mypy_cache/
 .vscode/*
 !.vscode/extensions.json
 .idea/

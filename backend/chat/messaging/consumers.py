@@ -5,15 +5,17 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from asgiref.sync import sync_to_async
 from redis.exceptions import RedisError
+from rest_framework.exceptions import APIException
+from .system_chats import require_system_access
 from .models import Membership
 from .tickets import consume
-
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         self.user_id = None
         self.expires_at = 0
         self.group = None
+        self.authorization = ''
         await self.accept()
         self.timeout_task = asyncio.create_task(self.expire(5))
 
@@ -43,6 +45,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 return
             self.timeout_task.cancel()
             self.user_id, self.expires_at = auth["user_id"], auth["exp"]
+            self.authorization = auth.get("authorization", "")
             self.group = f"user.{self.user_id}"
             await self.channel_layer.group_add(self.group, self.channel_name)
             self.timeout_task = asyncio.create_task(
@@ -58,11 +61,15 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4401)
             return
         payload = event["event"]
-        if payload["type"] != "chat.removed":
-            allowed = await database_sync_to_async(Membership.objects.filter(
-                chat_id=payload["chat_id"], user_id=self.user_id).exists)()
-            if not allowed:
+        if payload['type'] != 'chat.removed':
+            membership = await database_sync_to_async(Membership.objects.select_related('chat').filter(chat_id=payload['chat_id'], user_id=self.user_id).first)()
+            if not membership:
                 return
+            if membership.chat.system_key:
+                try:
+                    await sync_to_async(require_system_access, thread_sensitive=False)(membership.chat, self.user_id, self.authorization)
+                except APIException:
+                    return
         await self.send_json(payload)
 
     async def disconnect(self, code):

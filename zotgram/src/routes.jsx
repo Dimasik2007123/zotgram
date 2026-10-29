@@ -1,4 +1,3 @@
-// routes.jsx
 import {
   createRoutesFromElements,
   createBrowserRouter,
@@ -11,6 +10,7 @@ import Profile from "./pages/Profile.jsx";
 import People from "./pages/People.jsx";
 import Messages from "./pages/Messages.jsx";
 import Chat from "./components/Chat.jsx";
+import PostPage from "./pages/PostPage.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -22,6 +22,7 @@ const router = createBrowserRouter(
         <Route path="/chats" element={<Messages />}>
           <Route path=":chatId" element={<Chat />} />
         </Route>
+        <Route path="/posts/:postId" element={<PostPage />} />
       </Route>
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<Login />} />

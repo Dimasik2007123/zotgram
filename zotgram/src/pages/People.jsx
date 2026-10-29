@@ -1,3 +1,4 @@
+import statusText from "../utils/statusText";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQuery } from "../api/hooks";
@@ -26,19 +27,19 @@ function People() {
     try {
       navigate(`/chats/${await openDirectChat(userId)}`);
     } catch (err) {
-      setActionError(err.message);
+      setActionError(statusText(err.message));
     } finally {
       setBusy(false);
     }
   }
 
-  if (loading) return <p>Загрузка сотрудников…</p>;
-  if (error) return <p role="alert">{error}</p>;
+  if (loading) return <p className="status-message status-message--page" role="status">Загрузка сотрудников</p>;
+  if (error) return <p className="status-message status-message--page" role="alert">{error}</p>;
   const others = data.filter((person) => person.id !== user.id);
 
   return (
     <div className="people" aria-busy={busy}>
-      {actionError && <p role="alert">{actionError}</p>}
+      {actionError && <p className="status-message" role="alert">{actionError}</p>}
       {[true, false].map((same) => (
         <div className="people__content" key={String(same)}>
           <div className="people__header">
@@ -59,7 +60,7 @@ function People() {
           </div>
         </div>
       ))}
-      {!others.length && <p>Никого не найдено.</p>}
+      {!others.length && <p className="status-message">Никого не найдено</p>}
     </div>
   );
 }

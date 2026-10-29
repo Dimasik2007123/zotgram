@@ -1,5 +1,3 @@
-/* GroupInfoModal.css */
-
 .group-modal__header {
   display: flex;
   justify-content: space-between;
@@ -33,7 +31,6 @@
   gap: 16px;
 }
 
-/* Аватар */
 .group-modal__avatar-section {
   display: flex;
   flex-direction: column;
@@ -102,7 +99,6 @@
   font-family: inherit;
 }
 
-/* Название */
 .group-modal__field {
   display: flex;
   flex-direction: column;
@@ -145,6 +141,26 @@
   height: 100%;
 }
 
+.group-modal__name-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.group-modal__name-save-btn img {
+  display: block;
+  width: 18px;
+  height: 18px;
+  filter: brightness(0);
+}
+
+.group-modal__name-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .group-modal__name-edit input {
   flex: 1;
   padding: 6px 10px;
@@ -155,7 +171,6 @@
   outline: none;
 }
 
-/* Участники */
 .group-modal__participants-header {
   display: flex;
   align-items: center;
@@ -216,7 +231,52 @@
 
 .group-modal__participant-name {
   flex: 1;
+  min-width: 0;
   font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.group-modal__role-btn {
+  flex-shrink: 0;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5ff;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #3a5bd9;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.group-modal__role-btn:hover:not(:disabled) {
+  background: #dfe6ff;
+  border-color: #4a6cf7;
+}
+
+.group-modal__role-btn--admin {
+  background: #f3f4f6;
+  border-color: #dfe3eb;
+  color: #555;
+}
+
+.group-modal__role-btn--admin:hover:not(:disabled) {
+  background: #e5e7eb;
+  border-color: #b0b3b8;
+}
+
+.group-modal__role-btn:focus-visible {
+  outline: 2px solid #4a6cf7;
+  outline-offset: 2px;
+}
+
+.group-modal__role-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .group-modal__participant-remove {
@@ -264,13 +324,6 @@
   gap: 4px;
 }
 
-.group-modal__search-empty {
-  color: #8a8d91;
-  font-size: 14px;
-  text-align: center;
-  padding: 12px 0;
-}
-
 .group-modal__search-item {
   display: flex;
   align-items: center;
@@ -302,14 +355,22 @@
 
 .group-modal__footer {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  margin-top: 16px;
-  padding-top: 16px;
+  gap: 12px;
+  margin: 16px -24px -24px;
+  padding: 16px 24px;
   border-top: 1px solid #cdcdcdde;
-  margin-left: -24px;
-  padding-left: 24px;
-  margin-right: -24px;
-  padding-right: 24px;
+}
+
+.group-modal__footer > button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  line-height: 1.25;
 }
 
 .group-modal__save-btn {
@@ -327,4 +388,30 @@
 
 .group-modal__save-btn:hover {
   background: #3a5bd9;
+}
+
+.group-modal__delete-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background: #e74c3c;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.group-modal__delete-btn:hover:not(:disabled) {
+  background: #c0392b;
+}
+
+.group-modal__delete-btn:focus-visible {
+  outline: 2px solid #c0392b;
+  outline-offset: 2px;
+}
+
+.group-modal__delete-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }

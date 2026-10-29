@@ -1,5 +1,9 @@
+import statusText from "../utils/statusText";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { useState } from "react";
+import { api } from "../api/client";
+import Comments from "./Comments";
 import like from "../assets/images/like.svg";
 import likeFilled from "../assets/images/likeIsLiked.svg";
 import comments from "../assets/images/comment.svg";
@@ -7,12 +11,17 @@ import share from "../assets/images/share.svg";
 import getUserColor from "../utils/getUserColor";
 
 function Post({ post, showActivity = true }) {
-  const isCommentsOpen = false;
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [savedPost, setSavedPost] = useState(null);
+  const value = savedPost?.source === post ? savedPost.value : post;
 
   const { user: currentUser } = useSelector((state) => state.user);
-  const isLiked = false;
-  const likesCount = null;
-  const commentsCount = null;
+  const isLiked = Boolean(value.isLiked);
+  const likesCount = value.likesCount || 0;
+  const commentsCount = value.commentsCount || 0;
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -116,6 +125,32 @@ function Post({ post, showActivity = true }) {
     return `${count} комментариев`;
   };
 
+  const handleLike = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api(`/api/core/posts/${value.id}/like/`, {
+        method: isLiked ? "DELETE" : "PUT",
+      });
+      setSavedPost({ source: post, value: updated });
+    } catch (error) {
+      setError(statusText(error.message || "Не удалось изменить лайк"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAddComment = () => {
+    setSavedPost((previous) => {
+      const latest = previous?.source === post ? previous.value : post;
+      return {
+        source: post,
+        value: { ...latest, commentsCount: (latest.commentsCount || 0) + 1 },
+      };
+    });
+  };
+
   const getUserData = (userId) => {
     if (String(userId) === String(currentUser?.id)) return currentUser;
     return post.author;
@@ -124,6 +159,19 @@ function Post({ post, showActivity = true }) {
   const user = getUserData(post.userId);
   const firstName = user?.name || "Пользователь";
   const lastName = user?.lastname || "";
+
+  const handleShare = async () => {
+    setCopied(false);
+    setError("");
+
+    try {
+      const url = new URL(`/posts/${value.id}`, window.location.origin);
+      await navigator.clipboard.writeText(url.href);
+      setCopied(true);
+    } catch {
+      setError("Не удалось скопировать ссылку");
+    }
+  };
 
   return (
     <div
@@ -179,14 +227,20 @@ function Post({ post, showActivity = true }) {
 
       <div className="divisor"></div>
 
+      {error && (
+        <p className="status-message" role="alert">
+          {error}
+        </p>
+      )}
+
       {showActivity ? (
         <>
           <div className="post__buttons">
             <button
               type="button"
               className="post__buttons-item"
-              disabled
-              title="Лайки пока недоступны"
+              disabled={busy}
+              onClick={handleLike}
             >
               <img
                 src={isLiked ? likeFilled : like}
@@ -198,8 +252,8 @@ function Post({ post, showActivity = true }) {
             <button
               type="button"
               className="post__buttons-item"
-              disabled
-              title="Комментарии пока недоступны"
+              disabled={busy}
+              onClick={() => setIsCommentsOpen((prev) => !prev)}
             >
               <img
                 src={comments}
@@ -211,15 +265,15 @@ function Post({ post, showActivity = true }) {
             <button
               type="button"
               className="post__buttons-item"
-              disabled
-              title="Поделиться пока недоступно"
+              disabled={busy}
+              onClick={handleShare}
             >
               <img
                 src={share}
                 alt="Поделиться"
                 className="post__buttons-item-image"
               />
-              Поделиться
+              {copied ? "Ссылка скопирована" : "Поделиться"}
             </button>
           </div>
         </>
@@ -228,8 +282,8 @@ function Post({ post, showActivity = true }) {
           <button
             type="button"
             className="post__buttons-item"
-            disabled
-            title="Комментарии пока недоступны"
+            disabled={busy}
+            onClick={() => setIsCommentsOpen((prev) => !prev)}
           >
             <img
               src={comments}
@@ -239,6 +293,9 @@ function Post({ post, showActivity = true }) {
             Комментарии
           </button>
         </div>
+      )}
+      {isCommentsOpen && (
+        <Comments postId={post.id} onAdded={handleAddComment} />
       )}
     </div>
   );

@@ -6,10 +6,8 @@ from rest_framework.exceptions import ValidationError
 IMAGE_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png",
                "WEBP": "image/webp", "GIF": "image/gif"}
 
-
 def upload_path(instance, filename):
     return f"uploads/{uuid4().hex}{Path(filename).suffix.lower()}"
-
 
 def validate_upload(file, image_only=False):
     if not file:

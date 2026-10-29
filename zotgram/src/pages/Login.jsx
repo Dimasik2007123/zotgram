@@ -1,3 +1,4 @@
+import statusText from "../utils/statusText";
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -20,7 +21,8 @@ function Login() {
     failure?.search === location.search ? failure.message : "";
   const error = starting
     ? ""
-    : requestError || (oauthError ? "Вход отменён. Можно попробовать снова." : "");
+    : requestError ||
+      (oauthError ? "Вход отменён. Можно попробовать снова" : "");
   const loading = starting || Boolean(code && !oauthError && !requestError);
 
   useEffect(() => {
@@ -34,11 +36,22 @@ function Login() {
         if (!active) return;
         setAccess(data.access);
         dispatch(login(data.user));
-        navigate("/", { replace: true });
+        const returnTo = sessionStorage.getItem("zotgram:returnTo") || "/";
+        sessionStorage.removeItem("zotgram:returnTo");
+
+        const destination =
+          returnTo.startsWith("/") && !returnTo.startsWith("//")
+            ? returnTo
+            : "/";
+
+        navigate(destination, { replace: true });
       })
       .catch((err) => {
         if (active) {
-          setFailure({ search: location.search, message: err.message });
+          setFailure({
+            search: location.search,
+            message: statusText(err.message),
+          });
         }
       });
     return () => {
@@ -49,12 +62,13 @@ function Login() {
     setStarting(true);
     setFailure(null);
     try {
+      sessionStorage.setItem("zotgram:returnTo", location.state?.from || "/");
       const data = await fetch("/api/core/auth/start/", {
         credentials: "same-origin",
       }).then(readResponse);
       window.location.assign(data.authorize_url);
     } catch (err) {
-      setFailure({ search: location.search, message: err.message });
+      setFailure({ search: location.search, message: statusText(err.message) });
       setStarting(false);
     }
   }
@@ -68,7 +82,7 @@ function Login() {
         </div>
 
         {error && (
-          <div className="login-error" role="alert">
+          <div className="status-message" role="alert">
             {error}
           </div>
         )}
@@ -89,7 +103,7 @@ function Login() {
               fill="#fff"
             />
           </svg>
-          {loading ? "Загрузка..." : "Войти через Яндекс"}
+          {loading ? "Загрузка" : "Войти через Яндекс"}
         </button>
       </div>
     </div>

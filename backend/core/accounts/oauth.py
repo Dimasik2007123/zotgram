@@ -20,7 +20,6 @@ from .serializers import UserSerializer
 
 log = logging.getLogger(__name__)
 
-
 def json_endpoint(view):
     @wraps(view)
     def wrapped(request):
@@ -43,7 +42,6 @@ def json_endpoint(view):
                 status=502)
     return wrapped
 
-
 def set_refresh(response, token):
     response.set_cookie(
         settings.REFRESH_COOKIE, str(token),
@@ -53,14 +51,12 @@ def set_refresh(response, token):
     response["Cache-Control"] = "no-store"
     return response
 
-
 @require_GET
 @ensure_csrf_cookie
 def csrf(request):
     response = JsonResponse({"csrfToken": get_token(request)})
     response["Cache-Control"] = "no-store"
     return response
-
 
 @require_GET
 def start(request):
@@ -78,7 +74,6 @@ def start(request):
     response["Cache-Control"] = "no-store"
     return response
 
-
 def fetch_yandex(code):
     with httpx.Client(timeout=10) as client:
         response = client.post(
@@ -94,7 +89,6 @@ def fetch_yandex(code):
             headers={"Authorization": f"OAuth {token}"})
         response.raise_for_status()
         return response.json()
-
 
 @require_POST
 @csrf_protect
@@ -134,7 +128,6 @@ def callback(request):
          "user": UserSerializer(user, context={"request": request}).data})
     return set_refresh(response, refresh)
 
-
 @require_POST
 @csrf_protect
 @json_endpoint
@@ -147,7 +140,6 @@ def refresh(request):
     data = serializer.validated_data
     response = JsonResponse({"access": data["access"]})
     return set_refresh(response, RefreshToken(data["refresh"]))
-
 
 @require_POST
 @csrf_protect

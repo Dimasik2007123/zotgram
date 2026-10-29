@@ -1,4 +1,5 @@
 .messages {
+  --messages-header-height: 66px;
   width: 100%;
   margin: -20px;
   padding: 20px;

@@ -7,13 +7,11 @@ from rest_framework.exceptions import ValidationError
 from .models import Department, Follow, User
 from .serializers import UserSerializer
 
-
 class MeView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
 
     def get_object(self):
         return self.request.user
-
 
 class UsersView(generics.ListAPIView):
     serializer_class = UserSerializer
@@ -32,11 +30,9 @@ class UsersView(generics.ListAPIView):
         department = self.request.query_params.get("department")
         return qs.filter(department_id=department) if department else qs
 
-
 class UserView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
     queryset = User.objects.filter(is_active=True)
-
 
 class UserBatchView(APIView):
     def get(self, request):
@@ -59,14 +55,12 @@ class UserBatchView(APIView):
             UserSerializer(
                 qs, many=True, context={"request": request}).data)
 
-
 class DepartmentView(APIView):
     def get(self, request):
         return Response(
             list(
                 Department.objects.order_by("name").values(
                     "id", "name")))
-
 
 class FollowView(APIView):
     def put(self, request, pk):

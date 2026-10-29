@@ -1,3 +1,4 @@
+import statusText from "../utils/statusText";
 import { useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import getUserColor from "../utils/getUserColor";
@@ -73,7 +74,7 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
 
       onClose();
     } catch (error) {
-      setError(error.message || "Не удалось опубликовать пост.");
+      setError(statusText(error.message || "Не удалось опубликовать пост"));
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +119,7 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
               </div>
             </div>
 
-            {error && <p role="alert">{error}</p>}
+            {error && <p className="status-message" role="alert">{error}</p>}
 
             <form className="create-post__form" onSubmit={handleSubmit}>
               <textarea
@@ -168,7 +169,7 @@ function CreatePostModal({ isOpen, onClose, onPostSubmit }) {
                   className="create-post__submit-btn"
                   disabled={(!text.trim() && !image) || isLoading}
                 >
-                  {isLoading ? "Публикация..." : "Опубликовать"}
+                  {isLoading ? "Публикация" : "Опубликовать"}
                 </button>
               </div>
             </form>

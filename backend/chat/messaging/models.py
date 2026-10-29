@@ -2,15 +2,15 @@ from django.db import models
 from uuid import uuid4
 from system.uploads import upload_path
 
-# Create your models here.
-
-
 class Chat(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     type = models.CharField(max_length=10, choices=[
                             ('personal', 'Личный'), ('group', 'Группа')])
     direct_key = models.CharField(
         max_length=75, unique=True, null=True, blank=True)
+    system_key = models.SlugField(
+        max_length=80, unique=True, null=True, blank=True)
+    department_id = models.SlugField(max_length=60, blank=True)
     name = models.CharField(max_length=150)
     avatar = models.FileField(upload_to=upload_path, blank=True)
     last_sequence = models.PositiveBigIntegerField(default=0)
@@ -19,7 +19,6 @@ class Chat(models.Model):
 
     def __str__(self):
         return self.name
-
 
 class Membership(models.Model):
     chat = models.ForeignKey(
@@ -36,7 +35,6 @@ class Membership(models.Model):
             models.UniqueConstraint(
                 fields=['chat', 'user_id'],
                 name='unique_chat_member')]
-
 
 class Message(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)

@@ -31,7 +31,7 @@ function Messages() {
         <Outlet />
       ) : (
         <div className="messages__placeholder">
-          <p>Выберите чат, чтобы начать общение</p>
+          <p className="status-message">Выберите чат, чтобы начать общение</p>
         </div>
       )}
     </div>

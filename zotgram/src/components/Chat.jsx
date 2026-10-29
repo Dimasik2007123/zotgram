@@ -1,26 +1,35 @@
-import { useParams, useNavigate } from "react-router-dom";
+import statusText from "../utils/statusText";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { api, changed } from "../api/client";
 import { useMessages, usePeople, usePrivateFile, useQuery } from "../api/hooks";
 import getUserColor from "../utils/getUserColor.js";
+import GroupInfoModal from "./GroupInfoModal.jsx";
 import info from "../assets/images/info.svg";
 import attach from "../assets/images/file.svg";
 import send from "../assets/images/send.svg";
 import back from "../assets/images/back.svg";
+import readed from "../assets/images/readed.svg";
 
-const attachmentsEnabled = false;
-const groupsEnabled = false;
+const attachmentsEnabled = true;
+const groupsEnabled = true;
 
-function Attachment({ file }) {
+function Attachment({ file, onImageLoad }) {
   const url = usePrivateFile(file?.url || "");
   if (!file) return null;
   const isImage = file.mime?.startsWith("image/");
   return (
     <>
       {isImage && url && (
-        <img src={url} alt={file.name} className="chat__message-image" />
+        <img
+          src={url}
+          alt={file.name}
+          className="chat__message-image"
+          onLoad={onImageLoad}
+          onError={onImageLoad}
+        />
       )}
       <div className="chat__message-file">
         <img src={attach} alt="" />
@@ -29,7 +38,9 @@ function Attachment({ file }) {
             {file.name}
           </a>
         ) : (
-          <span>Загрузка файла…</span>
+          <span className="status-message status-message--inline" role="status">
+            Загрузка файла
+          </span>
         )}
       </div>
     </>
@@ -40,13 +51,16 @@ function ChatContent() {
   const { chatId } = useParams();
   const navigate = useNavigate();
   const currentUser = useSelector((state) => state.user.user);
+  const [params] = useSearchParams();
+  const query = (params.get("q") || "").trim();
   const chatState = useQuery(
     () => api(`/api/chat/chats/${chatId}/`),
     chatId,
     "chats",
   );
+  const reloadChat = chatState.reload;
   const chat = chatState.data;
-  const messagesState = useMessages(chatId);
+  const messagesState = useMessages(chatId, query);
   const chatMessages = messagesState.rows;
   const people = usePeople([
     ...(chat?.participants || []),
@@ -67,10 +81,80 @@ function ChatContent() {
   const fileInputRef = useRef(null);
   const messageInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const stickToBottomRef = useRef(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pendingAttempt, setPendingAttempt] = useState(null);
   const sendingRef = useRef(false);
+  const lastRead = useRef(0);
+  const pendingRead = useRef(0);
+  const latest = chatMessages.at(-1)?.sequence || 0;
+  const chatReady = Boolean(chat) && !chatState.loading;
+
+  useEffect(() => {
+    const handleReadUpdated = ({ detail: { topic, event } }) => {
+      if (
+        topic === "reads" &&
+        event?.type === "read.updated" &&
+        event.chat_id === chatId &&
+        String(event.user_id) !== String(currentUser.id)
+      ) {
+        reloadChat();
+      }
+    };
+
+    window.addEventListener("zotgram:changed", handleReadUpdated);
+
+    return () => {
+      window.removeEventListener("zotgram:changed", handleReadUpdated);
+    };
+  }, [chatId, currentUser.id, reloadChat]);
+
+  useEffect(() => {
+    const mark = async () => {
+      if (
+        Boolean(query) ||
+        !chatReady ||
+        document.visibilityState !== "visible" ||
+        !document.hasFocus() ||
+        latest <= Math.max(lastRead.current, pendingRead.current)
+      ) {
+        return;
+      }
+
+      try {
+        pendingRead.current = latest;
+        const result = await api(`/api/chat/chats/${chatId}/read/`, {
+          method: "POST",
+          body: { sequence: latest },
+        });
+
+        lastRead.current = Math.max(lastRead.current, result.sequence);
+        changed("reads", {
+          type: "read.updated",
+          chat_id: chatId,
+          user_id: currentUser.id,
+          sequence: result.sequence,
+          unread_count: result.unreadCount,
+          last_sequence: result.lastSequence,
+        });
+      } catch {
+        // Повторим при новом сообщении или возвращении в окно.
+      } finally {
+        if (pendingRead.current === latest) pendingRead.current = 0;
+      }
+    };
+
+    void mark();
+
+    window.addEventListener("focus", mark);
+    document.addEventListener("visibilitychange", mark);
+
+    return () => {
+      window.removeEventListener("focus", mark);
+      document.removeEventListener("visibilitychange", mark);
+    };
+  }, [chatId, latest, currentUser.id, chatReady, query]);
 
   const handleFileChange = (e) => {
     if (!attachmentsEnabled || busy || pendingAttempt) return;
@@ -100,7 +184,13 @@ function ChatContent() {
       text: newMessage,
       file,
     };
-    const body = { text: attempt.text, attempt_id: attempt.id };
+    const body = new FormData();
+    body.set("text", attempt.text);
+    body.set("attempt_id", attempt.id);
+
+    if (attempt.file) {
+      body.set("file", attempt.file);
+    }
     sendingRef.current = true;
     setPendingAttempt(attempt);
     setBusy(true);
@@ -125,11 +215,19 @@ function ChatContent() {
         ![408, 429].includes(error.status)
       )
         setPendingAttempt(null);
-      setError(error.message || "Не удалось отправить сообщение.");
+      setError(statusText(error.message || "Не удалось отправить сообщение"));
     } finally {
       sendingRef.current = false;
       setBusy(false);
     }
+  };
+
+  const handleUpdateChat = async (updatedChat) => {
+    await api(`/api/chat/chats/${chatId}/`, {
+      method: "PATCH",
+      body: updatedChat,
+    });
+    changed("chats");
   };
 
   const getCompanion = () => {
@@ -141,16 +239,40 @@ function ChatContent() {
 
   const lastMessageId = chatMessages.at(-1)?.id;
 
+  const handleMessagesScroll = (event) => {
+    const container = event.currentTarget;
+    stickToBottomRef.current =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 40;
+  };
+
+  const handleImageLoad = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (container && stickToBottomRef.current) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, []);
+
   useEffect(() => {
     const container = messagesContainerRef.current;
 
     if (!container) return;
 
+    stickToBottomRef.current = true;
     container.scrollTop = container.scrollHeight;
   }, [lastMessageId, chatState.loading]);
 
-  if (chatState.loading) return <p>Загрузка чата…</p>;
-  if (!chat) return <p role="alert">{chatState.error || "Чат недоступен"}</p>;
+  if (chatState.loading)
+    return (
+      <p className="status-message status-message--page" role="status">
+        Загрузка чата
+      </p>
+    );
+  if (!chat)
+    return (
+      <p className="status-message status-message--page" role="alert">
+        {chatState.error || "Чат недоступен"}
+      </p>
+    );
 
   return (
     <div className="chat">
@@ -216,26 +338,52 @@ function ChatContent() {
         )}
       </div>
 
-      <div className="chat__messages" ref={messagesContainerRef}>
+      <div
+        className="chat__messages"
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+      >
         {messagesState.older && (
-          <button onClick={messagesState.loadOlder}>
+          <button
+            onClick={messagesState.loadOlder}
+            className="chat__load-older"
+          >
             Более ранние сообщения
           </button>
         )}
-        {messagesState.loading && <p>Загрузка истории…</p>}
-        {messagesState.error && (
-          <p role="alert">
-            {messagesState.error}{" "}
-            <button onClick={messagesState.reload}>Повторить</button>
+        {messagesState.loading && (
+          <p className="status-message" role="status">
+            Загрузка истории
           </p>
+        )}
+        {messagesState.error && (
+          <div className="status-message" role="alert">
+            <p className="status-message__text">{messagesState.error}</p>
+            <button
+              type="button"
+              className="status-message__action"
+              onClick={messagesState.reload}
+            >
+              Повторить
+            </button>
+          </div>
         )}
         {!messagesState.loading &&
         !messagesState.error &&
         chatMessages.length === 0 ? (
-          <div className="chat__messages-empty">Нет сообщений</div>
+          <div className="status-message status-message--fill">
+            {query ? "Сообщения не найдены" : "Нет сообщений"}
+          </div>
         ) : (
           chatMessages.map((msg) => {
             const isOwn = String(msg.authorId) === String(currentUser.id);
+            const isRead =
+              isOwn &&
+              (chat.members || []).some(
+                (member) =>
+                  String(member.userId) !== String(msg.authorId) &&
+                  (member.lastReadSequence || 0) >= msg.sequence,
+              );
             const author = isOwn
               ? currentUser
               : people.data?.find(
@@ -269,12 +417,26 @@ function ChatContent() {
                     )}
                     <Attachment
                       file={attachmentsEnabled ? msg.attachment : null}
+                      onImageLoad={handleImageLoad}
                     />
                     <div className="chat__message-time">
-                      {new Date(msg.createdAt).toLocaleTimeString("ru-RU", {
+                      {new Date(msg.createdAt).toLocaleDateString("ru-RU", {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
+
+                      {isOwn && (
+                        <span
+                          className="chat__message-status"
+                          aria-label={
+                            isRead ? "Прочитано" : "Сообщение сохранено"
+                          }
+                          title={isRead ? "Прочитано" : "Сообщение сохранено"}
+                        >
+                          <img src={readed} alt="" />
+                          {isRead && <img src={readed} alt="" />}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -285,10 +447,10 @@ function ChatContent() {
       </div>
 
       {error && (
-        <p role="alert">
+        <p className="status-message" role="alert">
           {error}{" "}
           {pendingAttempt &&
-            "Повторите отправку, чтобы завершить прежнюю попытку."}
+            "Повторите отправку, чтобы завершить прежнюю попытку"}
         </p>
       )}
       <form className="chat__input-form" onSubmit={handleSendMessage}>
@@ -345,6 +507,16 @@ function ChatContent() {
           </button>
         </div>
       </form>
+
+      {groupsEnabled && isModalOpen && (
+        <GroupInfoModal
+          key={chat.id}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          chat={chat}
+          onUpdateChat={handleUpdateChat}
+        />
+      )}
     </div>
   );
 }

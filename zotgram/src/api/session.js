@@ -1,3 +1,5 @@
+import statusText from "../utils/statusText";
+
 let access = null;
 let refreshPromise = null;
 let csrfPromise = null;
@@ -23,13 +25,23 @@ channel?.addEventListener("message", (event) => {
   if (event.data === "logout") endLocal();
 });
 
+function errorText(data) {
+  if (typeof data === "string") return data;
+  if (Array.isArray(data)) return data.map(errorText).filter(Boolean).join(" ");
+  if (data && typeof data === "object") {
+    return Object.values(data).map(errorText).filter(Boolean).join(" ");
+  }
+  return "";
+}
+
 export async function readResponse(response) {
   const data =
     response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) {
-    const error = new Error(
-      data?.detail || (data ? JSON.stringify(data) : `HTTP ${response.status}`),
-    );
+    const message = response.status === 413
+      ? "Файл слишком большой — выберите файл меньшего размера"
+      : errorText(data?.detail) || errorText(data) || `HTTP ${response.status}`;
+    const error = new Error(statusText(message));
     error.status = response.status;
     throw error;
   }

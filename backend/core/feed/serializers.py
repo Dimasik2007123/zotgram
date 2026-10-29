@@ -1,17 +1,29 @@
 from rest_framework import serializers
 from accounts.serializers import UserSerializer
 from system.uploads import validate_upload
-from .models import Post
-
+from .models import Post, Comment
 
 class PostSerializer(serializers.ModelSerializer):
     userId = serializers.UUIDField(source='author_id', read_only=True)
     author = UserSerializer(read_only=True)
     date = serializers.DateTimeField(source='created_at', read_only=True)
+    likesCount = serializers.SerializerMethodField()
+    commentsCount = serializers.SerializerMethodField()
+    isLiked = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
-        fields = ['id', 'userId', 'author', 'text', 'image', 'date']
+        fields = ['id', 'userId', 'author', 'text', 'image', 'date',
+                  'likesCount', 'commentsCount', 'isLiked']
+
+    def get_likesCount(self, obj):
+        return obj.likes.count()
+
+    def get_commentsCount(self, obj):
+        return obj.comments.count()
+
+    def get_isLiked(self, obj):
+        return obj.likes.filter(user=self.context['request'].user).exists()
 
     def validate_image(self, value):
         validate_upload(value, image_only=True)
@@ -29,3 +41,12 @@ class PostSerializer(serializers.ModelSerializer):
         if data.get('image'):
             data['image'] = urlsplit(data['image']).path
         return data
+
+class CommentSerializer(serializers.ModelSerializer):
+    userId = serializers.UUIDField(source='author_id', read_only=True)
+    author = UserSerializer(read_only=True)
+    date = serializers.DateTimeField(source='created_at', read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'userId', 'author', 'text', 'date']

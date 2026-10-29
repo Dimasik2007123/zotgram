@@ -9,7 +9,6 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import OriginValidator
 from messaging.routing import websocket_urlpatterns
 
-
 application = ProtocolTypeRouter({
     "http": django_application,
     "websocket": OriginValidator(URLRouter(websocket_urlpatterns), settings.WS_ORIGINS),

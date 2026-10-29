@@ -1,0 +1,11 @@
+.venv
+__pycache__
+*.pyc
+.env
+.env.*
+media
+staticfiles
+*.pem
+*.sqlite3
+.git
+.tmp

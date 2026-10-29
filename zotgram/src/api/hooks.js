@@ -1,5 +1,24 @@
+import statusText from "../utils/statusText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, allPages } from "./client";
+import { useDispatch, useSelector } from "react-redux";
+import { loadChats } from "../store/chatsReducer";
+
+export function useChats() {
+  const dispatch = useDispatch();
+  const userId = useSelector((state) => state.user.user?.id);
+  const chats = useSelector((state) => state.chats);
+  useEffect(() => {
+    if (userId) void dispatch(loadChats());
+  }, [dispatch, userId]);
+  const reload = useCallback(() => dispatch(loadChats({ force: true, sync: true })), [dispatch]);
+  return {
+    data: chats.ownerId === userId ? chats.items : null,
+    loading: chats.items === null && (chats.loading || !chats.error),
+    error: chats.error,
+    reload,
+  };
+}
 
 export function useQuery(loader, key, topics = "") {
   const latest = useRef(loader);
@@ -35,7 +54,7 @@ export function useQuery(loader, key, topics = "") {
             request,
             version,
             data: previous.request === request ? previous.data : null,
-            error: error.message,
+            error: statusText(error.message),
           }));
       }
     }
@@ -46,7 +65,6 @@ export function useQuery(loader, key, topics = "") {
   }, [request, version]);
   const sameRequest = state.request === request;
   const settled = sameRequest && state.version === version;
-  // Загрузка вычисляется из запроса и результата, отдельный setLoading не нужен.
   return {
     data: sameRequest ? state.data : null,
     loading: !settled && (!sameRequest || state.data === null),
@@ -162,7 +180,7 @@ export function useMessages(chatId, query = "") {
         initialized = true;
         update({ error: "" });
       } catch (err) {
-        update({ error: err.message });
+        update({ error: statusText(err.message) });
       } finally {
         running = false;
         if (active) {
@@ -179,7 +197,8 @@ export function useMessages(chatId, query = "") {
       loadOlder: () => fetchRows(current[0]?.sequence),
     };
     const event = (e) => {
-      if (e.detail.topic === "messages") void fetchRows();
+      if (e.detail.topic === "messages" &&
+          (!e.detail.event?.chat_id || e.detail.event.chat_id === chatId)) void fetchRows();
     };
     window.addEventListener("zotgram:changed", event);
     void fetchRows();

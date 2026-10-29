@@ -1,19 +1,49 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { useChats } from "../api/hooks";
 import logo from "../assets/images/logo.svg";
 import union from "../assets/images/union.svg";
 import house from "../assets/images/house.svg";
 import message from "../assets/images/message.svg";
 import people from "../assets/images/people.svg";
 import plus from "../assets/images/plus.svg";
-//import { useState } from "react";
 import getUserColor from "../utils/getUserColor";
-import { getTotalUnreadCounts } from "../utils/getUnreadCount";
 
 function Header({ onOpenModal }) {
-  //const [activePage, setActivePage] = useState(null);
   const { user } = useSelector((state) => state.user);
-  const unreadCounts = getTotalUnreadCounts(user?.id || "");
+  const location = useLocation();
+  const chats = useChats();
+  const [params, setParams] = useSearchParams();
+  const currentQuery = params.get("q") || "";
+  const canSearch =
+    ["/", "/people", "/chats"].includes(location.pathname) ||
+    location.pathname.startsWith("/chats/");
+
+  const searchPlaceholder =
+    location.pathname === "/"
+      ? "Поиск постов..."
+      : location.pathname === "/people"
+        ? "Поиск сотрудников..."
+        : location.pathname === "/chats"
+          ? "Поиск чатов..."
+          : "Поиск в переписке...";
+
+  const handleSearch = (event) => {
+    event.preventDefault();
+    const query = String(
+      new FormData(event.currentTarget).get("q") || "",
+    ).trim();
+    const next = new URLSearchParams(params);
+    if (query) next.set("q", query);
+    else next.delete("q");
+    next.delete("page");
+    setParams(next);
+  };
+
+  const unreadCounts = (chats.data || []).reduce(
+    (sum, chat) => sum + (chat.unreadCount || 0),
+    0,
+  );
 
   return (
     <header className="header">
@@ -25,12 +55,22 @@ function Header({ onOpenModal }) {
           <div className="logo__text">ZotGram</div>
         </div>
 
-        <div className="search__wrapper">
-          <Link to="/" className="search__button">
-            <img src={union} alt="Поиск" />
-          </Link>
-          <input type="text" className="search__input" placeholder="Поиск..." />
-        </div>
+        {canSearch && (
+          <form className="search__wrapper" onSubmit={handleSearch}>
+            <button type="submit" className="search__button" aria-label="Найти">
+              <img src={union} alt="Поиск" />
+            </button>
+            <input
+              key={`${location.pathname}:${currentQuery}`}
+              type="search"
+              name="q"
+              className="search__input"
+              placeholder={searchPlaceholder}
+              defaultValue={currentQuery}
+              maxLength={100}
+            />
+          </form>
+        )}
       </div>
 
       <nav className="header__menu">
@@ -71,8 +111,10 @@ function Header({ onOpenModal }) {
           className="header__right-link link-profile"
           style={{ background: getUserColor(user) }}
         >
-          {user?.name?.charAt(0) || "П"}
-          {user?.lastname?.charAt(0) || ""}
+          <span className="header__profile-initials">
+            {user?.name?.charAt(0) || "П"}
+            {user?.lastname?.charAt(0) || ""}
+          </span>
         </Link>
       </div>
     </header>

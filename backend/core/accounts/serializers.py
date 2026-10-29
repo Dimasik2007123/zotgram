@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from .models import Department, User
 
-
 class UserSerializer(serializers.ModelSerializer):
     avatarColor = serializers.CharField(source="avatar_color", read_only=True)
     name = serializers.CharField(

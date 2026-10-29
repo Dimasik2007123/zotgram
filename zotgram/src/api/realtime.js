@@ -25,7 +25,7 @@ export function startRealtime() {
         }
         if (payload.type === "auth.ready") {
           retry = 0;
-          changed("chats");
+          changed("chats", { sync: true });
           changed("messages");
           clearInterval(heartbeat);
           heartbeat = setInterval(() => {
@@ -34,8 +34,10 @@ export function startRealtime() {
           }, 25000);
         } else if (payload.type === "pong") {
           // HTTP сверка восстанавливает и событие, потерянное при сбое Redis.
-          changed("chats");
+          changed("chats", { sync: true });
           changed("messages");
+        } else if (payload.type === "read.updated") {
+          changed("reads", payload);
         } else {
           changed("chats", payload);
           changed("messages", payload);

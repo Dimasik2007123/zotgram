@@ -13,14 +13,14 @@ function Feed() {
   );
 
   if (loading) {
-    return <div className="feed-loading">Загрузка...</div>;
+    return <div className="status-message status-message--page" role="status">Загрузка</div>;
   }
 
   if (error)
     return (
-      <div className="feed__error" role="alert">
-        <p className="feed__error-text">{error}</p>
-        <button type="button" className="feed__retry-btn" onClick={reload}>
+      <div className="status-message status-message--page" role="alert">
+        <p className="status-message__text">{error}</p>
+        <button type="button" className="status-message__action" onClick={reload}>
           Повторить
         </button>
       </div>
@@ -31,7 +31,7 @@ function Feed() {
       {data.length ? (
         data.map((post) => <Post key={post.id} post={post} />)
       ) : (
-        <p className="feed__empty-text">Публикаций пока нет.</p>
+        <p className="status-message">Публикаций пока нет</p>
       )}
     </div>
   );

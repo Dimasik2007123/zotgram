@@ -100,15 +100,32 @@
 }
 
 .chats-list-item__unread {
+  box-sizing: border-box;
   background: #4a6cf7;
   color: #fff;
   font-size: 11px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
   min-width: 20px;
   height: 20px;
-  padding: 0;
+  padding: 0 6px;
+  flex-shrink: 0;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.chats-list-item__unread-value {
+  display: block;
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+}
+
+@supports not (text-box-trim: trim-both) {
+  .chats-list-item__unread-value {
+    transform: translateY(1px);
+  }
 }

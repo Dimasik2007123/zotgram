@@ -30,15 +30,6 @@
   font-size: 14px;
 }
 
-.login-error {
-  background: #fee;
-  color: #c00;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 14px;
-}
-
 .yandex-login-btn {
   display: flex;
   align-items: center;

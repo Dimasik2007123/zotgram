@@ -2,10 +2,8 @@ from rest_framework import serializers
 from system.uploads import validate_upload
 from .models import Message
 
-
 class DirectInput(serializers.Serializer):
     recipient_id = serializers.UUIDField()
-
 
 class MessageInput(serializers.Serializer):
     text = serializers.CharField(
@@ -20,13 +18,14 @@ class MessageInput(serializers.Serializer):
             attrs['mime'] = validate_upload(attrs['file'])
         return attrs
 
-
 class GroupInput(serializers.Serializer):
     name = serializers.CharField(max_length=150)
     participants = serializers.ListField(
         child=serializers.UUIDField(),
-        min_length=1)
-
+        min_length=1,
+        error_messages={
+            'min_length': 'Добавьте хотя бы одного участника в группу.',
+        })
 
 class GroupPatch(serializers.Serializer):
     name = serializers.CharField(required=False, max_length=150)
@@ -37,17 +36,14 @@ class GroupPatch(serializers.Serializer):
             validate_upload(value, image_only=True)
         return value
 
-
 class MemberInput(serializers.Serializer):
     user_id = serializers.UUIDField()
     role = serializers.ChoiceField(
         choices=['admin', 'member'],
         default='member')
 
-
 class ReadInput(serializers.Serializer):
     sequence = serializers.IntegerField(min_value=0)
-
 
 class MessageSerializer(serializers.ModelSerializer):
     chatId = serializers.UUIDField(source='chat.id')
