@@ -216,13 +216,13 @@
   text-decoration: none;
 }
 
-@media (min-width: 1026px) and (max-width: 1150px) {
+@media (min-width: 1023px) and (max-width: 1150px) {
   .search__wrapper {
     width: 160px;
   }
 }
 
-@media (max-width: 1025px) {
+@media (max-width: 1023px) {
   .header__menu,
   .header__right-button {
     display: none;
