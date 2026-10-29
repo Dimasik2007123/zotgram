@@ -120,3 +120,26 @@ docker compose -f compose.full.yaml logs --tail=100 core chat nginx
 ```
 
 `compose.full.yaml` настроен для локального HTTP-запуска. Для публичного сервера нужны домен, HTTPS и собственные пароли и секреты.
+
+## Админки
+
+У сервисов отдельные админки и учётные записи:
+
+- Core: `/admin/` — пользователи, отделы, публикации
+- Chat: `/admin/chat/` — чаты, участники и сообщения
+
+В Docker открывай эти пути на `http://localhost:8080`, при локальной разработке через Vite — на `http://localhost:3000`. Напрямую админка Chat доступна на `http://localhost:8001/admin/chat/`.
+
+Для входа в Chat один раз создай его суперпользователя (логин и пароль из Core автоматически не переносятся).
+
+В Docker:
+
+```powershell
+docker compose -f compose.full.yaml exec chat python manage.py createsuperuser
+```
+
+При локальной разработке:
+
+```powershell
+.\backend\chat\.venv\Scripts\python.exe backend/chat/manage.py createsuperuser
+```
