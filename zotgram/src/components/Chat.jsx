@@ -38,7 +38,10 @@ function Attachment({ file, onImageLoad }) {
             {file.name}
           </a>
         ) : (
-          <span className="status-message status-message--inline" role="status">
+          <span
+            className="status-message status-message--inline status-message--loading"
+            role="status"
+          >
             Загрузка файла
           </span>
         )}
@@ -242,7 +245,8 @@ function ChatContent() {
   const handleMessagesScroll = (event) => {
     const container = event.currentTarget;
     stickToBottomRef.current =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 40;
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      40;
   };
 
   const handleImageLoad = useCallback(() => {
@@ -484,7 +488,7 @@ function ChatContent() {
           {filePreview && (
             <div className="chat__input-file-preview">
               <img src={attach} alt="" />
-              <span>{filePreview}</span>
+              <span className="chat__input-file-name">{filePreview}</span>
               <button
                 type="button"
                 className="chat__input-file-remove"

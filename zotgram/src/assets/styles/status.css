@@ -36,6 +36,10 @@
   padding: 0;
 }
 
+.status-message--loading {
+  font-size: 14px;
+}
+
 .status-message__text {
   max-width: 100%;
   margin: 0;

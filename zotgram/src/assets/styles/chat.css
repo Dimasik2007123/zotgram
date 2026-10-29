@@ -352,11 +352,21 @@
   font-size: 13px;
   color: #333;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 45%;
+}
+
+.chat__input-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat__input-file-remove {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   background: none;

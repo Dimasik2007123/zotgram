@@ -32,3 +32,14 @@
 .footer__image {
   width: 30px;
 }
+
+@media (max-width: 600px) {
+  .footer__label {
+    display: none;
+  }
+
+  .footer__button {
+    justify-content: center;
+    padding: 10px 0;
+  }
+}

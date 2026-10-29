@@ -236,6 +236,10 @@
     flex: 1;
   }
 
+  .header__right-link.add-post {
+    display: none;
+  }
+
   .logo__wrapper {
     flex-shrink: 0;
   }

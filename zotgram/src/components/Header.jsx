@@ -102,7 +102,7 @@ function Header({ onOpenModal }) {
       </nav>
 
       <div className="header__right">
-        <button className="header__right-link" onClick={onOpenModal}>
+        <button className="header__right-link add-post" onClick={onOpenModal}>
           <img src={plus} alt="Создать пост" />
           Пост
         </button>

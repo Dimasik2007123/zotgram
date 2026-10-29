@@ -11,15 +11,15 @@ function Footer({ onOpenModal }) {
     <footer className="footer">
       <button className="footer__button" onClick={() => navigate("/")}>
         <img src={house} alt="Посты" className="footer__image" />
-        Посты
+        <span className="footer__label">Посты</span>
       </button>
       <button className="footer__button" onClick={() => navigate("/chats")}>
         <img src={message} alt="Сообщения" className="footer__image" />
-        Сообщения
+        <span className="footer__label">Сообщения</span>
       </button>
       <button className="footer__button" onClick={() => navigate("/people")}>
         <img src={people} alt="Сотрудники" className="footer__image" />
-        Сотрудники
+        <span className="footer__label">Сотрудники</span>
       </button>
       <button className="footer__button" onClick={onOpenModal}>
         <img
@@ -28,7 +28,7 @@ function Footer({ onOpenModal }) {
           className="footer__image"
           style={{ filter: "invert(0.8)" }}
         />
-        Создать пост
+        <span className="footer__label">Создать пост</span>
       </button>
     </footer>
   );
