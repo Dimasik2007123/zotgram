@@ -4,6 +4,8 @@
 
 Бэкенд разделён на два сервиса: **Core** отвечает за пользователей и публикации, **Chat** — за переписки.
 
+Сайт доступен по адресу **https://zotgram.fxtun.ru**
+
 ## Технологии
 
 - React 19, Redux Toolkit, React Router, Vite, JavaScript, CSS
