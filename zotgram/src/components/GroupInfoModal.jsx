@@ -233,11 +233,6 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
               </button>
             </div>
           )}
-          {isSystemChat && (
-            <p className="status-message">
-              Состав и название этого чата определяются автоматически
-            </p>
-          )}
           <div className="group-modal__avatar-section">
             <div className="group-modal__avatar-wrapper">
               {avatar ? (
