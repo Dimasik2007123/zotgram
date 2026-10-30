@@ -434,7 +434,7 @@
   display: block;
 }
 
-@media (max-width: 800px) {
+@media (width < 800px) {
   .chat {
     margin-left: -20px;
   }

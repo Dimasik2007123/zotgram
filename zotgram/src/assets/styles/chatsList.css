@@ -52,7 +52,7 @@
   margin: 10px;
 }
 
-@media (max-width: 800px) {
+@media (width < 800px) {
   .chats-list {
     min-width: 100vw;
   }
