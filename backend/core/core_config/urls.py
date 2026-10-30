@@ -3,6 +3,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+admin.site.site_header = "Администрирование ZotGram"
+admin.site.site_title = "ZotGram — основная админка"
+admin.site.index_title = "Пользователи и публикации"
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/core/', include('system.urls')),
