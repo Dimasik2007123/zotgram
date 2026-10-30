@@ -6,8 +6,8 @@ from django.db import models
 
 def random_user_color():
     hue = randint(0, 359) / 360
-    saturation = randint(55, 85) / 100
-    brightness = randint(45, 70) / 100
+    saturation = randint(75, 95) / 100
+    brightness = randint(75, 90) / 100
     red, green, blue = hsv_to_rgb(hue, saturation, brightness)
     return f"#{round(red * 255):02X}{round(green * 255):02X}{round(blue * 255):02X}"
 
