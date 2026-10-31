@@ -13,4 +13,5 @@ urlpatterns = [
     path('chats/<uuid:pk>/read/', views.ReadView.as_view()),
     path('chats/<uuid:pk>/avatar/', views.AvatarView.as_view(), name='chat-avatar'),
     path('chats/<uuid:pk>/messages/<uuid:message_id>/file/', views.FileView.as_view(), name='message-file'),
+    path('chats/<uuid:pk>/messages/<uuid:message_id>/preview/', views.PreviewView.as_view(), name='message-preview'),
 ]

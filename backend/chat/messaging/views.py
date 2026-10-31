@@ -14,6 +14,7 @@ from .services import chat_data, chats_data, unread_memberships, locked_chat, me
 from system.pagination import ChatPages
 from .system_chats import sync_system_memberships, visible_chats
 from . import tickets
+from .previews import can_preview, open_preview, PreviewUnavailable
 
 class DirectView(APIView):
 
@@ -285,7 +286,7 @@ class TicketView(APIView):
                 'Authorization', ''))})
 
 class FileView(APIView):
-    def get(self, request, pk, message_id):
+    def get_message(self, request, pk, message_id):
         member(
             pk,
             request.user.id,
@@ -301,12 +302,30 @@ class FileView(APIView):
         if not message.attachment:
             raise NotFound()
 
+        return message
+
+    def get(self, request, pk, message_id):
+        message = self.get_message(request, pk, message_id)
         response = FileResponse(
             message.attachment.open('rb'),
             as_attachment=True,
             filename=message.attachment_name,
             content_type=message.attachment_mime,
         )
+        response['Cache-Control'] = 'private, no-store'
+        response['X-Content-Type-Options'] = 'nosniff'
+        return response
+
+class PreviewView(FileView):
+    def get(self, request, pk, message_id):
+        message = self.get_message(request, pk, message_id)
+        if not can_preview(message.attachment_mime, message.attachment_name):
+            raise NotFound()
+        try:
+            preview = open_preview(message.attachment)
+        except PreviewUnavailable:
+            raise NotFound('Превью недоступно.')
+        response = FileResponse(preview, content_type='image/webp', filename='preview.webp')
         response['Cache-Control'] = 'private, no-store'
         response['X-Content-Type-Options'] = 'nosniff'
         return response

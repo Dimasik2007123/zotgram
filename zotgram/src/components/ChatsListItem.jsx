@@ -73,7 +73,7 @@ function ChatsListItem({ chat, active }) {
 
     const attachment = lastMessage.attachment;
     if (attachment) {
-      const isImage = attachment.mime?.startsWith("image/") || false;
+      const isImage = Boolean(attachment.previewUrl || attachment.mime?.startsWith("image/"));
       return (
         <>
           {prefix}

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from system.uploads import validate_upload
 from .models import Message
+from .previews import can_preview
 
 class DirectInput(serializers.Serializer):
     recipient_id = serializers.UUIDField()
@@ -60,5 +61,8 @@ class MessageSerializer(serializers.ModelSerializer):
     def get_attachment(self, obj):
         if not obj.attachment:
             return None
+        base_url = f"/api/chat/chats/{obj.chat_id}/messages/{obj.id}"
         return {"name": obj.attachment_name, "mime": obj.attachment_mime,
-                "url": f"/api/chat/chats/{obj.chat_id}/messages/{obj.id}/file/"}
+                "url": f"{base_url}/file/",
+                "previewUrl": f"{base_url}/preview/" if can_preview(
+                    obj.attachment_mime, obj.attachment_name) else ""}
