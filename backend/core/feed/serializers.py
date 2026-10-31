@@ -17,12 +17,18 @@ class PostSerializer(serializers.ModelSerializer):
                   'likesCount', 'commentsCount', 'isLiked']
 
     def get_likesCount(self, obj):
+        if hasattr(obj, '_likes_count'):
+            return obj._likes_count
         return obj.likes.count()
 
     def get_commentsCount(self, obj):
+        if hasattr(obj, '_comments_count'):
+            return obj._comments_count
         return obj.comments.count()
 
     def get_isLiked(self, obj):
+        if hasattr(obj, '_is_liked'):
+            return obj._is_liked
         return obj.likes.filter(user=self.context['request'].user).exists()
 
     def validate_image(self, value):

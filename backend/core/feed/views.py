@@ -6,12 +6,14 @@ from rest_framework.views import APIView
 from accounts.models import Follow
 from .models import Post, Comment, Like
 from .serializers import PostSerializer, CommentSerializer
+from .queries import post_data
+from system.pagination import CommentPages
 
 class PostsView(generics.ListCreateAPIView):
     serializer_class = PostSerializer
 
     def get_queryset(self):
-        qs = Post.objects.select_related('author', 'author__department')
+        qs = post_data(Post.objects.all(), self.request.user)
         params = self.request.query_params
         if params.get('author'):
             from uuid import UUID
@@ -41,23 +43,26 @@ class LikeView(APIView):
     def put(self, request, pk):
         post = get_object_or_404(Post, pk=pk)
         Like.objects.get_or_create(post=post, user=request.user)
+        post = post_data(Post.objects.all(), request.user).get(pk=post.pk)
         return Response(
             PostSerializer(post, context={'request': request}).data)
 
     def delete(self, request, pk):
         post = get_object_or_404(Post, pk=pk)
         Like.objects.filter(post=post, user=request.user).delete()
+        post = post_data(Post.objects.all(), request.user).get(pk=post.pk)
         return Response(
             PostSerializer(post, context={'request': request}).data)
 
 class CommentView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
+    pagination_class = CommentPages
 
     def get_queryset(self):
         get_object_or_404(Post, pk=self.kwargs['pk'])
         return Comment.objects.filter(
-            post_id=self.kwargs['pk']).select_related('author').order_by(
-            'created_at', 'id')
+            post_id=self.kwargs['pk']).select_related('author', 'author__department').prefetch_related(
+            'author__outgoing_follows', 'author__incoming_follows').order_by('-created_at', '-id')
 
     def perform_create(self, serializer):
         serializer.save(
@@ -66,4 +71,6 @@ class CommentView(generics.ListCreateAPIView):
 
 class PostDetailView(generics.RetrieveAPIView):
     serializer_class = PostSerializer
-    queryset = Post.objects.select_related('author', 'author__department')
+
+    def get_queryset(self):
+        return post_data(Post.objects.all(), self.request.user)

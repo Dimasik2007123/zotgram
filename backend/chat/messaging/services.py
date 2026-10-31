@@ -4,8 +4,10 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Count, F, OuterRef, Subquery
+from django.db.models.functions import Coalesce
 from rest_framework.exceptions import APIException, NotAuthenticated, NotFound, ValidationError, PermissionDenied
-from .models import Chat, Membership
+from .models import Chat, Membership, Message
 from .serializers import MessageSerializer
 from .system_chats import require_system_access
 from .core_client import core_client
@@ -84,11 +86,35 @@ def notify_chat(chat, kind='chat.updated', payload=None, extra_users=()):
         (str(x) for x in extra_users))
     publish(ids, {'type': kind, 'chat_id': str(chat.pk), **(payload or {})})
 
-def chat_data(chat, user_id):
-    members = list(chat.memberships.all())
+def unread_memberships(queryset, user_id):
+    counts = Message.objects.filter(chat_id=OuterRef('chat_id'),
+                                    sequence__gt=OuterRef('last_read_sequence')).exclude(
+        author_id=user_id).order_by().values('chat_id').annotate(total=Count('pk')).values('total')
+    return queryset.annotate(unread_count=Coalesce(Subquery(counts[:1]), 0))
+
+
+def chats_data(chats, user_id):
+    chats = list(chats)
+    if not chats:
+        return []
+    ids = [chat.pk for chat in chats]
+    members = {chat_id: [] for chat_id in ids}
+    for membership in Membership.objects.filter(chat_id__in=ids).order_by('id'):
+        members[membership.chat_id].append(membership)
+    last = {message.chat_id: message for message in Message.objects.filter(
+        chat_id__in=ids, sequence=F('chat__last_sequence'))}
+    counts = dict(unread_memberships(Membership.objects.filter(
+        chat_id__in=ids, user_id=user_id), user_id).values_list('chat_id', 'unread_count'))
+    return [chat_data(chat, user_id, prepared={
+        'members': members[chat.pk], 'last': last.get(chat.pk), 'unread': counts.get(chat.pk, 0),
+    }) for chat in chats]
+
+
+def chat_data(chat, user_id, prepared=None):
+    members = prepared['members'] if prepared is not None else list(chat.memberships.all())
     own = next((x for x in members if str(x.user_id) == str(user_id)), None)
-    last = chat.messages.order_by('-sequence').first()
-    unread = (
+    last = prepared['last'] if prepared is not None else chat.messages.order_by('-sequence').first()
+    unread = prepared['unread'] if prepared is not None else (
         chat.messages
         .filter(sequence__gt=own.last_read_sequence)
         .exclude(author_id=user_id)

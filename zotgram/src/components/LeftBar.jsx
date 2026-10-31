@@ -12,7 +12,7 @@ function LeftBar() {
   );
   const chats = useChats();
 
-  const generalChat = chats.data?.find((chat) => chat.systemKey === "general");
+  const generalChat = chats.systemChats?.find((chat) => chat.systemKey === "general");
 
   return (
     <div className="leftbar">
@@ -79,7 +79,7 @@ function LeftBar() {
           )}
           {departments.data?.map((department) => {
             const isOwnDepartment = department.id === user?.department;
-            const chat = chats.data?.find(
+            const chat = chats.systemChats?.find(
               (item) =>
                 item.type === "group" && item.departmentId === department.id,
             );

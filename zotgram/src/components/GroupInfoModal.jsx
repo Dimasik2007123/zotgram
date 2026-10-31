@@ -2,8 +2,9 @@ import statusText from "../utils/statusText";
 import { useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { api, allPages, changed } from "../api/client";
-import { useQuery, usePrivateFile } from "../api/hooks";
+import { api, changed } from "../api/client";
+import { useDirectory, usePeople, useDebouncedValue, usePrivateFile } from "../api/hooks";
+import LoadMore from "./LoadMore";
 import { chatAvatarUrl } from "../api/privateFiles";
 import getUserColor from "../utils/getUserColor";
 import edit from "../assets/images/edit.svg";
@@ -16,11 +17,6 @@ const photosEnabled = true;
 function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
   const currentUser = useSelector((state) => state.user.user);
   const navigate = useNavigate();
-  const users = useQuery(
-    () => allPages("/api/core/users/"),
-    "group-users",
-    "profiles",
-  );
   const creating = !chat;
   const isSystemChat = Boolean(chat?.systemKey);
   const canEdit = !isSystemChat && (creating || chat.myRole === "admin");
@@ -34,6 +30,8 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [showAddParticipants, setShowAddParticipants] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const search = useDebouncedValue(searchQuery);
+  const users = useDirectory(search, canEdit && showAddParticipants);
   const fileInputRef = useRef(null);
 
   const members = creating
@@ -42,8 +40,9 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
         ...selectedParticipants.map((id) => ({ userId: id, role: "member" })),
       ]
     : chat.members;
+  const memberProfiles = usePeople(members.map((member) => member.userId));
   const participants = members.map((member) => {
-    const user = users.data?.find(
+    const user = memberProfiles.data?.find(
       (u) => String(u.id) === String(member.userId),
     );
     return {
@@ -57,9 +56,7 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
   const availableUsers = (users.data || []).filter(
     (u) => !members.some((member) => String(member.userId) === String(u.id)),
   );
-  const filteredUsers = availableUsers.filter((u) =>
-    `${u.name} ${u.lastname}`.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredUsers = availableUsers;
   const avatar = avatarPreview || (avatarRemoved ? "" : savedAvatar);
 
   const runAction = async (work) => {
@@ -380,7 +377,7 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
                 <div className="group-modal__search-results">
                   {!users.loading &&
                     !users.error &&
-                    (filteredUsers.length === 0 ? (
+                    (filteredUsers.length === 0 && !users.hasMore ? (
                       <div className="status-message">
                         {searchQuery
                           ? "Ничего не найдено"
@@ -413,6 +410,7 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
                         </div>
                       ))
                     ))}
+                  <LoadMore state={users} />
                 </div>
               </div>
             )}

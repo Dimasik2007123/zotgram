@@ -1,9 +1,9 @@
 import statusText from "../utils/statusText";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { useQuery } from "../api/hooks";
-import { allPages } from "../api/client";
+import { useDirectory } from "../api/hooks";
 import PersonCard from "../components/PersonCard";
+import LoadMore from "../components/LoadMore";
 import { useState } from "react";
 import { openDirectChat } from "../api/chats";
 
@@ -12,11 +12,8 @@ function People() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const query = params.get("q") || "";
-  const { data, loading, error } = useQuery(
-    () => allPages(`/api/core/users/?q=${encodeURIComponent(query)}`),
-    query,
-    "profiles",
-  );
+  const people = useDirectory(query);
+  const { data, loading, error } = people;
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -60,7 +57,8 @@ function People() {
           </div>
         </div>
       ))}
-      {!others.length && <p className="status-message">Никого не найдено</p>}
+      {!others.length && !people.hasMore && <p className="status-message">Никого не найдено</p>}
+      <LoadMore state={people} />
     </div>
   );
 }

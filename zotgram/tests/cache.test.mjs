@@ -12,12 +12,13 @@ const vite = await createServer({
 const originalFetch = globalThis.fetch;
 const originalChannel = globalThis.BroadcastChannel;
 globalThis.BroadcastChannel = undefined;
-const { serverApi, refreshMessages, applyIncomingMessage, submitMessage, retryMessage } = await vite.ssrLoadModule("/src/api/serverApi.js");
+const { serverApi, refreshMessages, applyIncomingMessage, submitMessage, retryMessage, updateCachedPost } = await vite.ssrLoadModule("/src/api/serverApi.js");
 const { store } = await vite.ssrLoadModule("/src/store/index.js");
 const { login, logout } = await vite.ssrLoadModule("/src/store/userReducer.js");
 const { setAccess } = await vite.ssrLoadModule("/src/api/session.js");
 const { subscribePrivateFile, getPrivateFile, chatAvatarUrl } = await vite.ssrLoadModule("/src/api/privateFiles.js");
-const { upsertChat, loadChats } = await vite.ssrLoadModule("/src/store/chatsReducer.js");
+const { upsertChat, loadChats, loadMoreChats, refreshUnread } = await vite.ssrLoadModule("/src/store/chatsReducer.js");
+const { pageRows } = await vite.ssrLoadModule("/src/api/pagination.js");
 const { startChatUpdates } = await vite.ssrLoadModule("/src/api/chatUpdates.js");
 const { startRealtime } = await vite.ssrLoadModule("/src/api/realtime.js");
 const { startMessageNotifications } = await vite.ssrLoadModule("/src/api/notifications.js");
@@ -46,6 +47,7 @@ const query = (name, args, options = {}) => store.dispatch(
   serverApi.endpoints[name].initiate(args, { subscribe: false, ...options }),
 );
 const cached = (name, args) => serverApi.endpoints[name].select(args)(store.getState());
+const comments = (postId = "post-a") => pageRows(cached("getComments", postId).data);
 const historyArgs = { chatId: "chat-a", query: "" };
 const message = (sequence, overrides = {}) => ({
   id: `message-${sequence}`, sequence, content: `Text ${sequence}`, chatId: "chat-a", authorId: "person",
@@ -121,7 +123,7 @@ test("adding a comment uses the POST response without reloading the list", async
   };
   await query("getComments", "post-a");
   await query("addComment", { postId: "post-a", text: "Hello" }).unwrap();
-  await waitFor(() => cached("getComments", "post-a").data.length === 2);
+  await waitFor(() => comments().length === 2);
   assert.deepEqual(requests, ["GET", "POST"]);
 });
 
@@ -133,8 +135,8 @@ test("an overlapping GET cannot overwrite a newly submitted comment", async () =
   await query("addComment", { postId: "post-a", text: "Hello" }).unwrap();
   response.resolve(json({ results: [{ id: "old-comment" }], next: null }));
   await initial;
-  await waitFor(() => cached("getComments", "post-a").data.length === 2);
-  assert.deepEqual(cached("getComments", "post-a").data.map((item) => item.id), ["old-comment", "new-comment"]);
+  await waitFor(() => comments().length === 2);
+  assert.deepEqual(comments().map((item) => item.id), ["new-comment", "old-comment"]);
 });
 
 test("failed comment submissions preserve the existing list", async () => {
@@ -143,7 +145,7 @@ test("failed comment submissions preserve the existing list", async () => {
     : json({ results: [{ id: "existing" }], next: null });
   await query("getComments", "post-a");
   await assert.rejects(query("addComment", { postId: "post-a", text: "Hello" }).unwrap());
-  assert.deepEqual(cached("getComments", "post-a").data, [{ id: "existing" }]);
+  assert.deepEqual(comments(), [{ id: "existing" }]);
 });
 
 test("people are batched across consumers, deduplicated by ID, and limited to 100 per request", async () => {
@@ -446,7 +448,8 @@ test("stale full-list responses cannot undo newer messages, read receipts, addit
   t.after(startChatUpdates(store.dispatch));
   const response = deferred();
   globalThis.fetch = async (path) => path.includes("/unread/")
-    ? json({ chats: [{ id: "chat-a", lastSequence: 2, lastReadSequence: 2, unreadCount: 0 }] })
+    ? json({ chats: [{ id: "chat-a", lastSequence: 2, lastReadSequence: 2, unreadCount: 0 },
+      { id: "new-chat", lastSequence: 1, lastReadSequence: 0, unreadCount: 1 }] })
     : response.promise;
   const loading = store.dispatch(loadChats({ force: true }));
   store.dispatch(applyIncomingMessage(message(2)));
@@ -668,4 +671,250 @@ test("heartbeats avoid HTTP refreshes on each pong while periodic reconciliation
   stop();
   socket.receive({ type: "message.created", chat_id: "chat-a", message: message(3) });
   assert.equal(events.length, finalCount);
+});
+
+test("post pages load on demand, deduplicate overlapping results, and share the cache on reopen", async () => {
+  const paths = [];
+  globalThis.fetch = async (path) => {
+    paths.push(path);
+    return path.includes('page=2')
+      ? json({ results: [{ id: 'post-b' }, { id: 'post-c' }], next: null })
+      : json({ results: [{ id: 'post-a' }, { id: 'post-b' }], next: 'http://localhost/api/core/posts/?page=2&page_size=20' });
+  };
+  await query('getPosts', 'q=test');
+  assert.equal(paths.length, 1);
+  assert.deepEqual(pageRows(cached('getPosts', 'q=test').data).map(row => row.id), ['post-a', 'post-b']);
+  await Promise.all([query('getPosts', 'q=test', { direction: 'forward' }), query('getPosts', 'q=test', { direction: 'forward' })]);
+  assert.equal(paths.length, 2);
+  assert.deepEqual(pageRows(cached('getPosts', 'q=test').data).map(row => row.id), ['post-a', 'post-b', 'post-c']);
+  await query('getPosts', 'q=test');
+  assert.equal(paths.length, 2);
+});
+
+test("a failed next page leaves earlier posts visible and retries the same cursor", async () => {
+  let fail = true;
+  const paths = [];
+  globalThis.fetch = async (path) => {
+    paths.push(path);
+    if (!path.includes('page=2')) return json({ results: [{ id: 'first' }], next: '/api/core/posts/?page=2' });
+    return fail ? json({ detail: 'Unavailable' }, 503) : json({ results: [{ id: 'second' }], next: null });
+  };
+  await query('getPosts', '');
+  await query('getPosts', '', { direction: 'forward' });
+  assert.deepEqual(pageRows(cached('getPosts', '').data), [{ id: 'first' }]);
+  assert.equal(cached('getPosts', '').isFetchNextPageError, true);
+  fail = false;
+  await query('getPosts', '', { direction: 'forward' });
+  assert.equal(paths[1], paths[2]);
+  assert.deepEqual(pageRows(cached('getPosts', '').data), [{ id: 'first' }, { id: 'second' }]);
+});
+
+test("post searches, profile posts, and chat searches keep separate page caches", async () => {
+  globalThis.fetch = async (path) => json({ results: [{ id: path }], next: null });
+  for (const args of ['', 'q=hello', 'author=other']) await query('getPosts', args);
+  await query('searchChats', 'hello');
+  await query('searchChats', 'other');
+  assert.notDeepEqual(cached('getPosts', '').data, cached('getPosts', 'q=hello').data);
+  assert.notDeepEqual(cached('getPosts', 'q=hello').data, cached('getPosts', 'author=other').data);
+  assert.notDeepEqual(cached('searchChats', 'hello').data, cached('searchChats', 'other').data);
+});
+
+test("directory pages seed user caches and do not fetch the whole directory", async () => {
+  const paths = [];
+  globalThis.fetch = async (path) => {
+    paths.push(path);
+    return json({ results: [{ id: 'person', name: 'Anna' }], next: '/api/core/users/?page=2' });
+  };
+  await query('getUsers', '');
+  await waitFor(() => cached('getPerson', 'person').data?.name === 'Anna');
+  await query('getPerson', 'person');
+  assert.equal(paths.length, 1);
+  assert.ok(paths[0].includes('page_size=20'));
+});
+
+test("new comments stay visible while older pages are loaded, without a full refetch", async () => {
+  const paths = [];
+  globalThis.fetch = async (path, options) => {
+    paths.push(path);
+    if (options.method === 'POST') return json({ id: 'comment-4' }, 201);
+    return path.includes('cursor=older')
+      ? json({ results: [{ id: 'comment-1' }], next: null })
+      : json({ results: [{ id: 'comment-3' }, { id: 'comment-2' }], next: '/api/core/posts/post-a/comments/?cursor=older' });
+  };
+  await query('getComments', 'post-a');
+  assert.equal(paths.length, 1);
+  await query('addComment', { postId: 'post-a', text: 'New' });
+  await waitFor(() => comments().length === 3);
+  await query('getComments', 'post-a', { direction: 'forward' });
+  assert.deepEqual(comments().map(row => row.id), ['comment-4', 'comment-3', 'comment-2', 'comment-1']);
+  assert.equal(paths.length, 3);
+});
+
+test("a next-page response cannot populate a new account after logout", async () => {
+  globalThis.fetch = async () => json({ results: [{ id: 'first' }], next: '/api/core/posts/?page=2' });
+  await query('getPosts', '');
+  const response = deferred();
+  globalThis.fetch = () => response.promise;
+  const next = query('getPosts', '', { direction: 'forward' });
+  store.dispatch(logout());
+  store.dispatch(login({ id: 'owner-b' }));
+  response.resolve(json({ results: [{ id: 'private-post' }], next: null }));
+  await next;
+  assert.equal(cached('getPosts', '').data, undefined);
+});
+
+const summary = (rows) => ({ chats: rows.map(row => ({ id: row.id, unreadCount: row.unreadCount,
+  lastReadSequence: row.lastReadSequence, lastSequence: row.lastSequence })),
+  systemChats: rows.filter(row => row.systemKey).map(row => ({ id: row.id, systemKey: row.systemKey, departmentId: row.departmentId })),
+});
+
+test("chat lists load one page while totals and department links cover all visible chats", async () => {
+  const all = [chat(), chat({ id: 'chat-b' }), chat({ id: 'chat-c', systemKey: 'general' })];
+  const paths = [];
+  globalThis.fetch = async (path) => {
+    paths.push(path);
+    return path.includes('/unread/') ? json(summary(all))
+      : json({ results: [all[0]], next: '/api/chat/chats/?cursor=second' });
+  };
+  await store.dispatch(loadChats());
+  await waitFor(() => store.getState().chats.unreadCount === 3);
+  assert.equal(store.getState().chats.items.length, 1);
+  assert.equal(store.getState().chats.systemChats[0].id, 'chat-c');
+  assert.equal(paths.length, 2);
+  assert.ok(!paths.some(path => path.includes('cursor=second')));
+});
+
+test("loading the next chat page merges duplicates and stops at the last page", async () => {
+  const all = [chat(), chat({ id: 'chat-b' })];
+  let requests = 0;
+  globalThis.fetch = async (path) => {
+    requests++;
+    if (path.includes('/unread/')) return json(summary(all));
+    return json({ results: path.includes('cursor=second') ? all : [all[0]],
+      next: path.includes('cursor=second') ? null : '/api/chat/chats/?cursor=second' });
+  };
+  await store.dispatch(loadChats());
+  await waitFor(() => !store.getState().chats.unreadLoading);
+  await store.dispatch(loadMoreChats());
+  const before = requests;
+  await store.dispatch(loadMoreChats());
+  assert.equal(store.getState().chats.items.length, 2);
+  assert.equal(store.getState().chats.unreadCount, 2);
+  assert.equal(store.getState().chats.next, null);
+  assert.equal(requests, before);
+});
+
+test("failed chat pages retain items, keep the cursor, and allow retry", async () => {
+  const all = [chat(), chat({ id: 'chat-b' })];
+  let fail = true;
+  globalThis.fetch = async (path) => {
+    if (path.includes('/unread/')) return json(summary(all));
+    if (path.includes('cursor=second')) return fail ? json({ detail: 'Unavailable' }, 503) : json({ results: [all[1]], next: null });
+    return json({ results: [all[0]], next: '/api/chat/chats/?cursor=second' });
+  };
+  await store.dispatch(loadChats());
+  await waitFor(() => !store.getState().chats.unreadLoading);
+  await store.dispatch(loadMoreChats());
+  assert.equal(store.getState().chats.items.length, 1);
+  assert.ok(store.getState().chats.moreError);
+  assert.equal(store.getState().chats.next, '/api/chat/chats/?cursor=second');
+  fail = false;
+  await store.dispatch(loadMoreChats());
+  assert.equal(store.getState().chats.items.length, 2);
+  assert.equal(store.getState().chats.moreError, '');
+});
+
+test("background chat refresh preserves loaded older pages and their next cursor", async () => {
+  const all = [chat(), chat({ id: 'chat-b' }), chat({ id: 'chat-c' })];
+  globalThis.fetch = async (path) => {
+    if (path.includes('/unread/')) return json(summary(all));
+    return path.includes('cursor=second') ? json({ results: [all[1]], next: '/api/chat/chats/?cursor=third' })
+      : json({ results: [all[0]], next: '/api/chat/chats/?cursor=second' });
+  };
+  await store.dispatch(loadChats());
+  await waitFor(() => !store.getState().chats.unreadLoading);
+  await store.dispatch(loadMoreChats());
+  await store.dispatch(loadChats({ force: true }));
+  await waitFor(() => !store.getState().chats.unreadLoading);
+  assert.equal(store.getState().chats.items.length, 2);
+  assert.equal(store.getState().chats.next, '/api/chat/chats/?cursor=third');
+  assert.equal(store.getState().chats.unreadCount, 3);
+});
+
+test("read events for unloaded chats update the global total without loading their metadata", async (t) => {
+  const all = [chat(), chat({ id: 'chat-b' })];
+  globalThis.fetch = async (path) => path.includes('/unread/') ? json(summary(all)) : json({ results: [all[0]], next: '/api/chat/chats/?cursor=second' });
+  await store.dispatch(loadChats());
+  await waitFor(() => !store.getState().chats.unreadLoading);
+  globalThis.fetch = (path) => { unexpectedRequests.push(path); throw new Error('Unexpected request'); };
+  t.after(startChatUpdates(store.dispatch));
+  changed('reads', { type: 'read.updated', chat_id: 'chat-b', user_id: 'owner-a', sequence: 1, last_sequence: 1, unread_count: 0 });
+  assert.equal(store.getState().chats.unreadCount, 1);
+  assert.equal(store.getState().chats.items.length, 1);
+});
+
+test("unread refresh removes inaccessible chats and ignores a chat removed during that refresh", async (t) => {
+  await seedChat();
+  store.dispatch(upsertChat(chat({ id: 'chat-b' })));
+  const response = deferred();
+  globalThis.fetch = () => response.promise;
+  const loading = store.dispatch(refreshUnread());
+  t.after(startChatUpdates(store.dispatch));
+  changed('chats', { type: 'chat.removed', chat_id: 'chat-a' });
+  response.resolve(json(summary([chat()])));
+  await loading;
+  assert.equal(store.getState().chats.unreadCount, 0);
+  assert.equal(store.getState().chats.items.length, 0);
+});
+
+test("post actions persist across feed and profile caches without overwriting comment counts", async () => {
+  globalThis.fetch = async () => json({ results: [{ id: 'post-a', isLiked: false, likesCount: 0, commentsCount: 1 }], next: null });
+  await query('getPosts', '');
+  await query('getPosts', 'author=person');
+  store.dispatch(updateCachedPost('post-a', { isLiked: true, likesCount: 1 }));
+  store.dispatch(updateCachedPost('post-a', post => ({ commentsCount: post.commentsCount + 1 })));
+  store.dispatch(updateCachedPost('post-a', { isLiked: false, likesCount: 0 }));
+  for (const args of ['', 'author=person']) {
+    const post = pageRows(cached('getPosts', args).data)[0];
+    assert.equal(post.likesCount, 0);
+    assert.equal(post.isLiked, false);
+    assert.equal(post.commentsCount, 2);
+  }
+});
+
+test("a successful comment submission still updates the cache after its form unmounts", async () => {
+  globalThis.fetch = async () => json({ results: [{ id: 'old' }], next: null });
+  await query('getComments', 'post-a');
+  const response = deferred();
+  globalThis.fetch = () => response.promise;
+  const request = query('addComment', { postId: 'post-a', text: 'New' });
+  request.reset();
+  response.resolve(json({ id: 'new' }, 201));
+  await request;
+  await waitFor(() => comments().length === 2);
+  assert.deepEqual(comments().map(row => row.id), ['new', 'old']);
+});
+
+test("a slow next chat page cannot undo an event applied while that page was loading", async () => {
+  const all = [chat(), chat({ id: 'chat-b' })];
+  const response = deferred();
+  let latest = all;
+  globalThis.fetch = async (path) => {
+    if (path.includes('/unread/')) return json(summary(latest));
+    if (path.includes('cursor=second')) return response.promise;
+    return json({ results: [all[0]], next: '/api/chat/chats/?cursor=second' });
+  };
+  await store.dispatch(loadChats());
+  await waitFor(() => !store.getState().chats.unreadLoading);
+  const more = store.dispatch(loadMoreChats());
+  store.dispatch(applyIncomingMessage(message(2)));
+  latest = [chat({ lastSequence: 2, unreadCount: 2 }), all[1]];
+  response.resolve(json({ results: all, next: null }));
+  await more;
+  await waitFor(() => !store.getState().chats.unreadLoading);
+  const row = store.getState().chats.items.find(item => item.id === 'chat-a');
+  assert.equal(row.lastMessage.id, 'message-2');
+  assert.equal(row.unreadCount, 2);
+  assert.equal(store.getState().chats.unreadCount, 3);
+  assert.equal(store.getState().chats.items.length, 2);
 });

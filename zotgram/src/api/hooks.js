@@ -2,10 +2,11 @@ import statusText from "../utils/statusText";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { allPages } from "./client";
 import { useDispatch, useSelector } from "react-redux";
-import { loadChats } from "../store/chatsReducer";
+import { loadChats, loadMoreChats } from "../store/chatsReducer";
 import { createSelector } from "@reduxjs/toolkit";
 import { serverApi, refreshMessages } from "./serverApi";
 import { getPrivateFile, subscribePrivateFile } from "./privateFiles";
+import { pageRows } from "./pagination";
 
 export function useChats() {
   const dispatch = useDispatch();
@@ -15,12 +16,65 @@ export function useChats() {
     if (userId) void dispatch(loadChats());
   }, [dispatch, userId]);
   const reload = useCallback(() => dispatch(loadChats({ force: true, sync: true })), [dispatch]);
+  const loadMore = useCallback(() => dispatch(loadMoreChats()), [dispatch]);
   return {
     data: chats.ownerId === userId ? chats.items : null,
     loading: chats.items === null && (chats.loading || !chats.error),
     error: chats.error,
     reload,
+    hasMore: Boolean(chats.next),
+    loadingMore: chats.loadingMore,
+    moreError: chats.moreError,
+    loadMore,
+    unreadCount: chats.unreadCount,
+    unreadCounts: chats.unreadCounts,
+    systemChats: chats.systemChats,
   };
+}
+
+function usePageResults(state, comments = false) {
+  const denied = accessDenied(state.error);
+  const data = useMemo(() => {
+    const rows = pageRows(state.currentData);
+    if (comments) rows.sort((a, b) => (a.date || "").localeCompare(b.date || "") || String(a.id).localeCompare(String(b.id)));
+    return rows;
+  }, [state.currentData, comments]);
+  return {
+    data: denied ? [] : data,
+    loading: state.isLoading,
+    error: !state.currentData || denied ? (state.error?.message || "") : "",
+    moreError: state.currentData && !denied ? (state.error?.message || "") : "",
+    hasMore: !denied && Boolean(state.hasNextPage),
+    loadingMore: state.isFetching,
+    loadMore: () => { if (!state.isFetching) void state.fetchNextPage(); },
+    reload: state.refetch,
+    retryMore: state.isFetchNextPageError ? state.fetchNextPage : state.refetch,
+  };
+}
+
+export function usePosts(query = "") {
+  return usePageResults(serverApi.useGetPostsInfiniteQuery(query, { refetchOnMountOrArgChange: 60 }));
+}
+
+export function useDirectory(query = "", enabled = true) {
+  return usePageResults(serverApi.useGetUsersInfiniteQuery(query, { skip: !enabled, refetchOnMountOrArgChange: 300 }));
+}
+
+export function useChatSearch(query) {
+  return usePageResults(serverApi.useSearchChatsInfiniteQuery(query, { skip: !query, refetchOnMountOrArgChange: 30 }));
+}
+
+export function useComments(postId) {
+  return usePageResults(serverApi.useGetCommentsInfiniteQuery(postId, { refetchOnMountOrArgChange: 60 }), true);
+}
+
+export function useDebouncedValue(value, delay = 250) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
 }
 
 export function useQuery(loader, key, topics = "") {

@@ -3,20 +3,16 @@ import send from "../assets/images/send.svg";
 import { useState } from "react";
 import { useSelector } from "react-redux";
 import { serverApi } from "../api/serverApi";
+import { useComments } from "../api/hooks";
+import LoadMore from "./LoadMore";
 import { Link } from "react-router-dom";
 import getUserColor from "../utils/getUserColor";
 
 function Comments({ postId, onAdded }) {
   const [newComment, setNewComment] = useState("");
   const { user: currentUser } = useSelector((state) => state.user);
-  const commentsQuery = serverApi.useGetCommentsQuery(postId, { refetchOnMountOrArgChange: 60 });
+  const commentsState = useComments(postId);
   const [addComment] = serverApi.useAddCommentMutation();
-  const commentsState = {
-    data: [401, 403, 404].includes(commentsQuery.error?.status) ? null : commentsQuery.currentData,
-    loading: commentsQuery.isLoading,
-    error: commentsQuery.error?.message || "",
-    reload: commentsQuery.refetch,
-  };
   const comments = commentsState.data || [];
   const [busy, setBusy] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -49,6 +45,7 @@ function Comments({ postId, onAdded }) {
   return (
     <div className="comments">
       <div className="comments__list">
+        <LoadMore state={commentsState} label="Показать более ранние комментарии" />
         {commentsState.loading && (
           <p className="status-message" role="status">
             Загрузка комментариев

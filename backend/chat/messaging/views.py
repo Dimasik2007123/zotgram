@@ -1,7 +1,7 @@
 from uuid import UUID
 from django.db import transaction
 from django.http import FileResponse
-from django.db.models import Count, F, Q
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.generics import GenericAPIView
@@ -10,7 +10,8 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError, NotFound
 from .models import Chat, Membership, Message
 from .serializers import DirectInput, GroupInput, GroupPatch, MemberInput, MessageInput, MessageSerializer, ReadInput
-from .services import chat_data, locked_chat, member, notify_chat, publish, require_users, core_users
+from .services import chat_data, chats_data, unread_memberships, locked_chat, member, notify_chat, publish, require_users, core_users
+from system.pagination import ChatPages
 from .system_chats import sync_system_memberships, visible_chats
 from . import tickets
 
@@ -36,10 +37,11 @@ class DirectView(APIView):
         return Response(chat_data(chat, uid), status=201 if created else 200)
 
 class ChatsView(GenericAPIView):
+    pagination_class = ChatPages
 
     def get(self, request):
         uid = request.user.id
-        first_page = request.query_params.get('page', '1') == '1'
+        first_page = not request.query_params.get('cursor')
         if first_page and (request.query_params.get('sync') ==
                            '1' or not Chat.objects.filter(
                 memberships__user_id=uid,
@@ -58,7 +60,7 @@ class ChatsView(GenericAPIView):
             ).distinct()
         page = self.paginate_queryset(qs)
         return self.get_paginated_response(
-            [chat_data(chat, uid) for chat in page])
+            chats_data(page, uid))
 
     def post(self, request):
         data = GroupInput(data=request.data)
@@ -232,16 +234,18 @@ class MessagesView(APIView):
 class UnreadView(APIView):
     def get(self, request):
         # Один SQL-запрос на все счётчики; состав отделов здесь не пересобираем.
-        memberships = Membership.objects.filter(
+        memberships = unread_memberships(Membership.objects.filter(
             user_id=request.user.id, chat__in=visible_chats(request)
-        ).annotate(unread_count=Count('chat__messages', filter=(
-            Q(chat__messages__sequence__gt=F('last_read_sequence')) &
-            ~Q(chat__messages__author_id=request.user.id)
-        )))
+        ), request.user.id)
+        rows = list(memberships.select_related('chat'))
         return Response({'chats': [
             {'id': str(row.chat_id), 'unreadCount': row.unread_count,
              'lastReadSequence': row.last_read_sequence, 'lastSequence': row.chat.last_sequence}
-            for row in memberships.select_related('chat')
+            for row in rows
+        ], 'totalUnread': sum(row.unread_count for row in rows), 'systemChats': [
+            {'id': str(row.chat_id), 'systemKey': row.chat.system_key,
+             'departmentId': row.chat.department_id or None, 'name': row.chat.name}
+            for row in rows if row.chat.system_key
         ]})
 
 class ReadView(APIView):

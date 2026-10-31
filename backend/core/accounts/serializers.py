@@ -24,10 +24,10 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def get_following(self, obj):
-        return [str(x) for x in obj.outgoing_follows.values_list("author_id", flat=True)]
+        return [str(follow.author_id) for follow in obj.outgoing_follows.all()]
 
     def get_followers(self, obj):
-        return [str(x) for x in obj.incoming_follows.values_list("follower_id", flat=True)]
+        return [str(follow.follower_id) for follow in obj.incoming_follows.all()]
 
     def validate(self, attrs):
         date = attrs.get("birth_date")

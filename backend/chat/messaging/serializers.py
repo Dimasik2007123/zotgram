@@ -46,7 +46,7 @@ class ReadInput(serializers.Serializer):
     sequence = serializers.IntegerField(min_value=0)
 
 class MessageSerializer(serializers.ModelSerializer):
-    chatId = serializers.UUIDField(source='chat.id')
+    chatId = serializers.UUIDField(source='chat_id')
     authorId = serializers.UUIDField(source='author_id')
     content = serializers.CharField(source='text')
     createdAt = serializers.DateTimeField(source='created_at')

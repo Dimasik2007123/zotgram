@@ -5,6 +5,7 @@ import { getCacheSession } from "./cacheSession";
 import { rememberOutboxFile, getOutboxFile, releaseOutboxFile } from "./outboxFiles";
 import { sendingMessage, failedMessage, confirmedMessage } from "../store/outboxReducer";
 import { receivedMessage, upsertChat, refreshUnread } from "../store/chatsReducer";
+import { infinitePages, pagePath, pageRows } from "./pagination";
 
 const requestPerson = createPeopleBatcher((ids, signal) =>
   api(`/api/core/users/batch/?ids=${ids.join(",")}`, { signal }),
@@ -33,25 +34,45 @@ export const serverApi = createApi({
   reducerPath: "serverApi",
   baseQuery,
   keepUnusedDataFor: 300,
-  tagTypes: ["Person", "Chat"],
+  tagTypes: ["Person", "Chat", "Posts", "Directory", "ChatSearch", "Comments"],
   endpoints: (build) => ({
-    getComments: build.query({
-      query: (postId) => ({ path: `/api/core/posts/${postId}/comments/`, pages: true }),
+    getPosts: build.infiniteQuery(infinitePages((query) => pagePath("/api/core/posts/", query), "Posts")),
+    getUsers: build.infiniteQuery({
+      ...infinitePages((query) => pagePath("/api/core/users/", new URLSearchParams({ q: query }).toString()), "Directory"),
+      async onQueryStarted(_args, { dispatch, getState, queryFulfilled }) {
+        const session = getCacheSession();
+        try {
+          const { data } = await queryFulfilled;
+          if (session !== getCacheSession()) return;
+          const missing = pageRows(data).filter((person) => {
+            const cached = serverApi.endpoints.getPerson.select(String(person.id))(getState());
+            return !cached.data && !cached.isLoading;
+          });
+          if (missing.length) dispatch(serverApi.util.upsertQueryEntries(missing.map((person) => ({
+            endpointName: "getPerson", arg: String(person.id), value: person,
+          }))));
+        } catch { /* A failed next page leaves the already loaded users available. */ }
+      },
     }),
+    searchChats: build.infiniteQuery(infinitePages((query) =>
+      pagePath("/api/chat/chats/", new URLSearchParams({ q: query }).toString()), "ChatSearch")),
+    getComments: build.infiniteQuery(infinitePages((postId) =>
+      pagePath(`/api/core/posts/${postId}/comments/`), "Comments")),
     addComment: build.mutation({
       query: ({ postId, text }) => ({
         path: `/api/core/posts/${postId}/comments/`,
         method: "POST",
         body: { text },
       }),
-      async onQueryStarted({ postId }, { dispatch, getState, requestId, queryFulfilled }) {
+      async onQueryStarted({ postId }, { dispatch, queryFulfilled }) {
+        const session = getCacheSession();
         try {
           const { data: comment } = await queryFulfilled;
           // A response from an earlier GET must not overwrite the new comment.
           await dispatch(serverApi.util.getRunningQueryThunk("getComments", postId));
-          if (!getState()[serverApi.reducerPath].mutations[requestId]) return;
+          if (session !== getCacheSession()) return;
           dispatch(serverApi.util.updateQueryData("getComments", postId, (comments) => {
-            if (!comments.some((item) => item.id === comment.id)) comments.push(comment);
+            if (!pageRows(comments).some((item) => item.id === comment.id)) comments.pages[0]?.results.unshift(comment);
           }));
         } catch {
           // The mutation exposes the error to the form; cached comments stay intact.
@@ -289,4 +310,16 @@ export const retryMessage = (attemptId) => (dispatch, getState) => {
   if (!message || message.delivery !== "failed") return;
   return dispatch(submitMessage({ chatId: message.chatId, text: message.content,
     attemptId, file: getOutboxFile(attemptId) }));
+};
+
+export const updateCachedPost = (postId, update, session = getCacheSession()) => (dispatch, getState) => {
+  if (session !== getCacheSession()) return;
+  for (const args of serverApi.util.selectCachedArgsForQuery(getState(), "getPosts")) {
+    dispatch(serverApi.util.updateQueryData("getPosts", args, (data) => {
+      for (const page of data.pages) {
+        const post = page.results.find((row) => row.id === postId);
+        if (post) Object.assign(post, typeof update === "function" ? update(post) : update);
+      }
+    }));
+  }
 };

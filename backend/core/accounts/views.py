@@ -6,20 +6,21 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from .models import Department, Follow, User
 from .serializers import UserSerializer
+from .queries import user_data
 
 class MeView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
 
     def get_object(self):
-        return self.request.user
+        return user_data(User.objects.all()).get(pk=self.request.user.pk)
 
 class UsersView(generics.ListAPIView):
     serializer_class = UserSerializer
 
     def get_queryset(self):
-        qs = User.objects.filter(
+        qs = user_data(User.objects.filter(
             is_active=True, is_superuser=False).order_by(
-            "first_name", "last_name", "id")
+            "first_name", "last_name", "id"))
         query = self.request.query_params.get("q", "").strip()[:100]
         if query:
             qs = qs.filter(
@@ -32,7 +33,7 @@ class UsersView(generics.ListAPIView):
 
 class UserView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
-    queryset = User.objects.filter(is_active=True)
+    queryset = user_data(User.objects.filter(is_active=True))
 
 class UserBatchView(APIView):
     def get(self, request):
@@ -45,7 +46,7 @@ class UserBatchView(APIView):
             raise ValidationError("Неверный UUID.")
         if len(ids) > 100:
             raise ValidationError("Не более 100 пользователей за запрос.")
-        qs = User.objects.filter(id__in=ids, is_active=True)
+        qs = user_data(User.objects.filter(id__in=ids, is_active=True))
         query = request.query_params.get("q", "").strip()[:100]
         if query:
             qs = qs.filter(

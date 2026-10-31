@@ -2,8 +2,9 @@ import statusText from "../utils/statusText";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { api, allPages, changed } from "../api/client";
-import { useQuery } from "../api/hooks";
+import { api, changed } from "../api/client";
+import { useQuery, usePosts } from "../api/hooks";
+import LoadMore from "../components/LoadMore";
 import { logoutSession } from "../api/session";
 import { updateUser } from "../store/userReducer";
 import { openDirectChat } from "../api/chats";
@@ -26,11 +27,7 @@ function ProfileContent({ userId }) {
     () => api("/api/core/departments/"),
     "departments",
   );
-  const postsState = useQuery(
-    () => allPages(`/api/core/posts/?author=${userId}`),
-    userId,
-    "posts",
-  );
+  const postsState = usePosts(`author=${encodeURIComponent(userId)}`);
 
   const posts = postsState.data || [];
   const [draft, setDraft] = useState({});
@@ -336,6 +333,7 @@ function ProfileContent({ userId }) {
         {posts.map((post) => (
           <Post key={post.id} post={post} showActivity={!isCurrentUser} />
         ))}
+        <LoadMore state={postsState} />
       </div>
     </div>
   );

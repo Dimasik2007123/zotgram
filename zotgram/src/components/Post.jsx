@@ -1,6 +1,6 @@
 import statusText from "../utils/statusText";
 import { Link } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useRef, useState } from "react";
 import { api } from "../api/client";
 import Comments from "./Comments";
@@ -9,8 +9,11 @@ import likeFilled from "../assets/images/likeIsLiked.svg";
 import comments from "../assets/images/comment.svg";
 import share from "../assets/images/share.svg";
 import getUserColor from "../utils/getUserColor";
+import { updateCachedPost } from "../api/serverApi";
+import { getCacheSession } from "../api/cacheSession";
 
 function Post({ post, showActivity = true }) {
+  const dispatch = useDispatch();
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const liking = useRef(false);
@@ -132,6 +135,10 @@ function Post({ post, showActivity = true }) {
     setBusy(true);
     setError("");
     const before = { isLiked, likesCount };
+    const session = getCacheSession();
+    dispatch(updateCachedPost(value.id, {
+      isLiked: !isLiked, likesCount: Math.max(0, likesCount + (isLiked ? -1 : 1)),
+    }, session));
     setSavedPost({ source: post, value: {
       ...value, isLiked: !isLiked, likesCount: Math.max(0, likesCount + (isLiked ? -1 : 1)),
     } });
@@ -139,11 +146,13 @@ function Post({ post, showActivity = true }) {
       const updated = await api(`/api/core/posts/${value.id}/like/`, {
         method: isLiked ? "DELETE" : "PUT",
       });
+      dispatch(updateCachedPost(value.id, { isLiked: updated.isLiked, likesCount: updated.likesCount }, session));
       setSavedPost((previous) => ({ source: post, value: {
         ...(previous?.source === post ? previous.value : post),
         isLiked: updated.isLiked, likesCount: updated.likesCount,
       } }));
     } catch (error) {
+      dispatch(updateCachedPost(value.id, before, session));
       setSavedPost((previous) => ({ source: post, value: {
         ...(previous?.source === post ? previous.value : post), ...before,
       } }));
@@ -155,6 +164,7 @@ function Post({ post, showActivity = true }) {
   };
 
   const handleAddComment = () => {
+    dispatch(updateCachedPost(post.id, (cached) => ({ commentsCount: (cached.commentsCount || 0) + 1 })));
     setSavedPost((previous) => {
       const latest = previous?.source === post ? previous.value : post;
       return {

@@ -1,8 +1,9 @@
 import ChatsListItem from "./ChatsListItem.jsx";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { useChats, useQuery } from "../api/hooks";
-import { api, changed, allPages } from "../api/client";
+import { useChats, useChatSearch } from "../api/hooks";
+import { api, changed } from "../api/client";
+import LoadMore from "./LoadMore";
 
 import GroupInfoModal from "./GroupInfoModal.jsx";
 
@@ -15,30 +16,24 @@ function ChatsList() {
   const isShown = !(isMobile && chatId);
   const [params] = useSearchParams();
   const query = chatId ? "" : (params.get("q") || "").trim();
-  const search = useQuery(
-    () =>
-      query
-        ? allPages(
-            `/api/chat/chats/?q=${encodeURIComponent(query)}&page_size=100`,
-          )
-        : Promise.resolve([]),
-    query,
-    "chats profiles",
-  );
+  const search = useChatSearch(query);
 
   const chats = query
     ? {
         ...search,
         data: search.data?.map((item) => {
           const cached = sharedChats.data?.find((chat) => chat.id === item.id);
+          const counter = sharedChats.unreadCounts[item.id];
           const freshCount =
             cached &&
             cached.lastReadSequence >= item.lastReadSequence &&
             Math.max(cached.lastSequence, cached.countedSequence || 0) >=
               item.lastSequence;
-          return freshCount
-            ? cached
-            : item;
+          const value = freshCount ? cached : item;
+          return counter && counter.lastReadSequence >= value.lastReadSequence &&
+            counter.lastSequence >= value.lastSequence
+            ? { ...value, unreadCount: counter.unreadCount }
+            : value;
         }),
       }
     : sharedChats;
@@ -88,6 +83,7 @@ function ChatsList() {
           <ChatsListItem key={chat.id} chat={chat} />
         ))}
       </div>
+      <LoadMore state={chats} />
       {!chats.loading && !chats.error && userChats.length === 0 && (
         <p className="status-message">
           {query ? "Чаты не найдены" : "Чатов пока нет"}

@@ -9,9 +9,12 @@ export function startChatUpdates(dispatch) {
     } else if (topic === "messages" && event?.type === "message.created") {
       if (event.message?.chatId === event.chat_id) dispatch(applyIncomingMessage(event.message));
     } else if (topic === "profiles") {
-      dispatch(serverApi.util.invalidateTags(["Person", "Chat"]));
+      dispatch(serverApi.util.invalidateTags(["Person", "Chat", "Directory", "Posts", "ChatSearch"]));
       dispatch(loadChats({ force: true, sync: true }));
+    } else if (topic === "posts") {
+      dispatch(serverApi.util.invalidateTags(["Posts"]));
     } else if (topic === "chats") {
+      dispatch(serverApi.util.invalidateTags(["ChatSearch"]));
       if (event?.type === "chat.removed") {
         dispatch(removeChat(event.chat_id));
         dispatch(serverApi.util.getRunningQueryThunk("getChat", event.chat_id))?.abort();

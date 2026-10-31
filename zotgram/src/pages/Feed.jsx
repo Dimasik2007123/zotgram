@@ -1,16 +1,13 @@
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "../api/hooks";
-import { allPages } from "../api/client";
+import { usePosts } from "../api/hooks";
 import Post from "../components/Post";
+import LoadMore from "../components/LoadMore";
 
 function Feed() {
   const [params] = useSearchParams();
   const key = params.toString();
-  const { data, loading, error, reload } = useQuery(
-    () => allPages(`/api/core/posts/?${key}`),
-    key,
-    "posts",
-  );
+  const posts = usePosts(key);
+  const { data, loading, error, reload } = posts;
 
   if (loading) {
     return <div className="status-message status-message--page" role="status">Загрузка</div>;
@@ -33,6 +30,7 @@ function Feed() {
       ) : (
         <p className="status-message">Публикаций пока нет</p>
       )}
+      <LoadMore state={posts} />
     </div>
   );
 }

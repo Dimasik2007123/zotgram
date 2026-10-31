@@ -40,10 +40,7 @@ function Header({ onOpenModal }) {
     setParams(next);
   };
 
-  const unreadCounts = (chats.data || []).reduce(
-    (sum, chat) => sum + (chat.unreadCount || 0),
-    0,
-  );
+  const unreadCounts = chats.unreadCount;
 
   return (
     <header className="header">
