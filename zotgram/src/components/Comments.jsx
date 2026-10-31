@@ -2,18 +2,21 @@ import statusText from "../utils/statusText";
 import send from "../assets/images/send.svg";
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { useQuery } from "../api/hooks";
-import { api, allPages } from "../api/client";
+import { serverApi } from "../api/serverApi";
 import { Link } from "react-router-dom";
 import getUserColor from "../utils/getUserColor";
 
 function Comments({ postId, onAdded }) {
   const [newComment, setNewComment] = useState("");
   const { user: currentUser } = useSelector((state) => state.user);
-  const commentsState = useQuery(
-    () => allPages(`/api/core/posts/${postId}/comments/`),
-    postId,
-  );
+  const commentsQuery = serverApi.useGetCommentsQuery(postId, { refetchOnMountOrArgChange: 60 });
+  const [addComment] = serverApi.useAddCommentMutation();
+  const commentsState = {
+    data: [401, 403, 404].includes(commentsQuery.error?.status) ? null : commentsQuery.currentData,
+    loading: commentsQuery.isLoading,
+    error: commentsQuery.error?.message || "",
+    reload: commentsQuery.refetch,
+  };
   const comments = commentsState.data || [];
   const [busy, setBusy] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -27,13 +30,9 @@ function Comments({ postId, onAdded }) {
     setSendError("");
 
     try {
-      await api(`/api/core/posts/${postId}/comments/`, {
-        method: "POST",
-        body: { text: newComment.trim() },
-      });
+      await addComment({ postId, text: newComment.trim() }).unwrap();
       setNewComment("");
       onAdded?.();
-      commentsState.reload();
     } catch (error) {
       setSendError(statusText(error.message || "Не удалось отправить комментарий"));
     } finally {

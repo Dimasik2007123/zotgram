@@ -4,7 +4,8 @@ import { useSelector } from "react-redux";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { api, changed } from "../api/client";
-import { useMessages, usePeople, usePrivateFile, useQuery } from "../api/hooks";
+import { useMessages, usePeople, usePrivateFile, useChat } from "../api/hooks";
+import { chatAvatarUrl } from "../api/privateFiles";
 import getUserColor from "../utils/getUserColor.js";
 import GroupInfoModal from "./GroupInfoModal.jsx";
 import info from "../assets/images/info.svg";
@@ -53,11 +54,7 @@ function ChatContent() {
   const currentUser = useSelector((state) => state.user.user);
   const [params] = useSearchParams();
   const query = (params.get("q") || "").trim();
-  const chatState = useQuery(
-    () => api(`/api/chat/chats/${chatId}/`),
-    chatId,
-    "chats",
-  );
+  const chatState = useChat(chatId);
   const reloadChat = chatState.reload;
   const chat = chatState.data;
   const messagesState = useMessages(chatId, query);
@@ -67,9 +64,7 @@ function ChatContent() {
     ...chatMessages.map((message) => message.authorId),
   ]);
   const avatar = usePrivateFile(
-    attachmentsEnabled && chat?.avatar
-      ? `${chat.avatar}?v=${encodeURIComponent(chat.updatedAt)}`
-      : "",
+    attachmentsEnabled ? chatAvatarUrl(chat) : "",
   );
   const isGroupChat = chat && chat.type === "group";
 
@@ -347,6 +342,7 @@ function ChatContent() {
         {messagesState.older && (
           <button
             onClick={messagesState.loadOlder}
+            disabled={messagesState.loadingOlder}
             className="chat__load-older"
           >
             Более ранние сообщения

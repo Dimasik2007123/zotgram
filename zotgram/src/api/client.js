@@ -26,11 +26,11 @@ export async function api(path, options = {}) {
   return attempt(true);
 }
 
-export async function allPages(path) {
+export async function allPages(path, options = {}) {
   let url = path;
   const rows = [];
   while (url) {
-    const page = await api(url);
+    const page = await api(url, options);
     rows.push(...page.results);
     const next = page.next && new URL(page.next, location.origin);
     url = next ? next.pathname + next.search : null;

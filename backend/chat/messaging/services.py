@@ -115,6 +115,7 @@ def chat_data(chat, user_id):
         'lastReadSequence': own.last_read_sequence if own else 0,
         'lastSequence': chat.last_sequence,
         'avatar': f'/api/chat/chats/{chat.pk}/avatar/' if chat.avatar else '',
+        'avatarVersion': chat.avatar.name if chat.avatar else '',
         'lastMessage': MessageSerializer(last).data if last else None,
         'updatedAt': chat.updated_at.isoformat(),
     }

@@ -1,8 +1,11 @@
 import statusText from "../utils/statusText";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, allPages } from "./client";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { allPages } from "./client";
 import { useDispatch, useSelector } from "react-redux";
 import { loadChats } from "../store/chatsReducer";
+import { createSelector } from "@reduxjs/toolkit";
+import { serverApi, refreshMessages } from "./serverApi";
+import { getPrivateFile, subscribePrivateFile } from "./privateFiles";
 
 export function useChats() {
   const dispatch = useDispatch();
@@ -74,148 +77,85 @@ export function useQuery(loader, key, topics = "") {
 }
 
 export function usePeople(ids) {
+  const dispatch = useDispatch();
+  const owner = useSelector((state) => state.user.user?.id);
   const key = [...new Set(ids.filter(Boolean).map(String))].sort().join(",");
-  return useQuery(
-    async () => {
-      const list = key ? key.split(",") : [];
-      const rows = [];
-      for (let offset = 0; offset < list.length; offset += 100) {
-        rows.push(
-          ...(await api(
-            `/api/core/users/batch/?ids=${list.slice(offset, offset + 100).join(",")}`,
-          )),
-        );
-      }
-      return rows;
+  const list = useMemo(() => key ? key.split(",") : [], [key]);
+  const selectPeople = useMemo(() => createSelector(
+    list.length
+      ? list.map((id) => serverApi.endpoints.getPerson.select(id))
+      : [() => null],
+    (...results) => {
+      const queries = results.filter(Boolean);
+      return {
+        data: queries.flatMap((result) => result.data && !accessDenied(result.error) ? [result.data] : []),
+        loading: queries.some((result) => !result.data && !result.isError),
+        error: queries.find((result) => result.error)?.error?.message || "",
+      };
     },
-    key,
-    "profiles",
-  );
+  ), [list]);
+  const state = useSelector(selectPeople);
+  useEffect(() => {
+    if (!owner) return;
+    const requests = list.map((id) => dispatch(serverApi.endpoints.getPerson.initiate(id, {
+      forceRefetch: 300,
+    })));
+    return () => requests.forEach((request) => request.unsubscribe());
+  }, [dispatch, list, owner]);
+  const reload = useCallback(() => {
+    dispatch(serverApi.util.invalidateTags(list.map((id) => ({ type: "Person", id }))));
+  }, [dispatch, list]);
+  return { ...state, reload };
 }
 
 export function usePrivateFile(url) {
-  // При смене адреса прежняя Blob-ссылка сразу скрывается.
-  const request = useMemo(() => ({ url }), [url]);
-  const [state, setState] = useState({ request: null, value: "" });
-  useEffect(() => {
-    let active = true;
-    let objectUrl = "";
-    if (request.url)
-      api(request.url, { blob: true })
-        .then((blob) => {
-          if (!active) return;
-          objectUrl = URL.createObjectURL(blob);
-          setState({ request, value: objectUrl });
-        })
-        .catch(() => {});
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [request]);
-  return state.request === request ? state.value : "";
+  return useSyncExternalStore(
+    useCallback((listener) => subscribePrivateFile(url, listener), [url]),
+    useCallback(() => getPrivateFile(url), [url]),
+    () => "",
+  );
+}
+
+const accessDenied = (error) => [401, 403, 404].includes(error?.status);
+
+export function useChat(chatId) {
+  const state = serverApi.useGetChatQuery(chatId, { refetchOnMountOrArgChange: 30 });
+  return {
+    data: accessDenied(state.error) ? null : state.currentData,
+    loading: state.isLoading,
+    error: state.error?.message || "",
+    reload: state.refetch,
+  };
 }
 
 export function useMessages(chatId, query = "") {
-  const request = useMemo(() => ({ chatId, query }), [chatId, query]);
-  const [state, setState] = useState({
-    request: null,
-    rows: [],
-    older: false,
-    error: "",
-    loading: true,
-  });
-  const reloadRef = useRef(null);
+  const dispatch = useDispatch();
+  const args = useMemo(() => ({ chatId, query }), [chatId, query]);
+  const state = serverApi.useGetMessagesQuery(args, { refetchOnMountOrArgChange: true });
+  const [loadOlder, olderState] = serverApi.useLoadOlderMessagesMutation();
   useEffect(() => {
-    const { chatId, query } = request;
-    let active = true,
-      running = false,
-      queued = false,
-      initialized = false;
-    let current = [];
-    const update = (patch) => {
-      if (!active) return;
-      setState((previous) => ({
-        ...(previous.request === request
-          ? previous
-          : { request, rows: [], older: false, error: "", loading: true }),
-        ...patch,
-      }));
-    };
-    const merge = (next) => {
-      const map = new Map(current.map((row) => [row.id, row]));
-      next.forEach((row) => map.set(row.id, row));
-      current = [...map.values()].sort((a, b) => a.sequence - b.sequence);
-      update({ rows: current });
-    };
-    const fetchRows = async (before) => {
-      if (!active) return;
-      if (running) {
-        queued = true;
-        return;
-      }
-      running = true;
-      try {
-        let after =
-          initialized && !before && !query
-            ? (current.at(-1)?.sequence ?? 0)
-            : null;
-        do {
-          const params = new URLSearchParams({ q: query });
-          if (before) params.set("before", before);
-          if (after !== null) params.set("after", after);
-          const page = await api(
-            `/api/chat/chats/${chatId}/messages/?${params}`,
-          );
-          if (!active) return;
-          if (query && !before) current = [];
-          merge(page.results);
-          if (after === null) {
-            update({ older: page.has_more });
-            break;
-          }
-          if (!page.has_more || !page.results.length) break;
-          after = page.results.at(-1).sequence;
-        } while (active);
-        initialized = true;
-        update({ error: "" });
-      } catch (err) {
-        update({ error: statusText(err.message) });
-      } finally {
-        running = false;
-        if (active) {
-          update({ loading: false });
-          if (queued) {
-            queued = false;
-            void fetchRows();
-          }
-        }
+    const handle = ({ detail: { topic, event } }) => {
+      if (topic === "messages" && (!event?.chat_id || event.chat_id === chatId)) {
+        void dispatch(refreshMessages(args));
       }
     };
-    reloadRef.current = {
-      reload: () => fetchRows(),
-      loadOlder: () => fetchRows(current[0]?.sequence),
-    };
-    const event = (e) => {
-      if (e.detail.topic === "messages" &&
-          (!e.detail.event?.chat_id || e.detail.event.chat_id === chatId)) void fetchRows();
-    };
-    window.addEventListener("zotgram:changed", event);
-    void fetchRows();
-    return () => {
-      active = false;
-      reloadRef.current = null;
-      window.removeEventListener("zotgram:changed", event);
-    };
-  }, [request]);
-  const sameRequest = state.request === request;
+    window.addEventListener("zotgram:changed", handle);
+    return () => window.removeEventListener("zotgram:changed", handle);
+  }, [dispatch, args, chatId]);
+  const denied = accessDenied(state.error) || accessDenied(olderState.error);
   return {
-    rows: sameRequest ? state.rows : [],
-    older: sameRequest ? state.older : false,
-    error: sameRequest ? state.error : "",
-    loading: sameRequest ? state.loading : true,
-    reload: () => reloadRef.current?.reload(),
-    loadOlder: () => reloadRef.current?.loadOlder(),
+    rows: denied ? [] : (state.currentData?.rows || []),
+    older: !denied && Boolean(state.currentData?.older),
+    error: state.error?.message || olderState.error?.message || "",
+    loading: state.isLoading,
+    loadingOlder: olderState.isLoading,
+    reload: () => {
+      olderState.reset();
+      return dispatch(refreshMessages(args));
+    },
+    loadOlder: () => {
+      if (!olderState.isLoading) void loadOlder(args);
+    },
   };
 }
 

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import getUserColor from "../utils/getUserColor";
 import { usePeople, usePrivateFile } from "../api/hooks";
+import { chatAvatarUrl } from "../api/privateFiles";
 import fileIcon from "../assets/images/file.svg";
 import photoIcon from "../assets/images/photo.svg";
 import defaultGroup from "../assets/images/default-group.png";
@@ -15,9 +16,7 @@ function ChatsListItem({ chat }) {
   const people = usePeople(
     isGroupChat ? [lastMessage?.authorId] : chat.participants,
   );
-  const avatar = usePrivateFile(
-    chat.avatar ? `${chat.avatar}?v=${encodeURIComponent(chat.updatedAt)}` : "",
-  );
+  const avatar = usePrivateFile(chatAvatarUrl(chat));
 
   const getCompanion = () => {
     const companionId = chat.participants.find((id) => id !== currentUser.id);

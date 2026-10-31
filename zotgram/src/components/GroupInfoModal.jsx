@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { api, allPages, changed } from "../api/client";
 import { useQuery, usePrivateFile } from "../api/hooks";
+import { chatAvatarUrl } from "../api/privateFiles";
 import getUserColor from "../utils/getUserColor";
 import edit from "../assets/images/edit.svg";
 import save from "../assets/images/save.svg";
@@ -27,11 +28,7 @@ function GroupInfoModal({ isOpen, onClose, chat, onUpdateChat }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [avatarRemoved, setAvatarRemoved] = useState(false);
-  const savedAvatar = usePrivateFile(
-    chat?.avatar
-      ? `${chat.avatar}?v=${encodeURIComponent(chat.updatedAt)}`
-      : "",
-  );
+  const savedAvatar = usePrivateFile(chatAvatarUrl(chat));
   const [groupName, setGroupName] = useState(chat?.name || "");
   const [avatarPreview, setAvatarPreview] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
