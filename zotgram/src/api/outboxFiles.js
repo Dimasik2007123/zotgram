@@ -1,4 +1,3 @@
-// Files stay outside Redux; only their serializable preview metadata enters the store.
 const files = new Map();
 
 export function rememberOutboxFile(attemptId, file) {

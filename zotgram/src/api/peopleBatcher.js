@@ -1,4 +1,3 @@
-// Individual RTK Query entries share one HTTP batch, including across chat rows.
 export function createPeopleBatcher(load) {
   let pending = [];
   let timer;

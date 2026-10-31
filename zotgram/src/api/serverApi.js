@@ -56,7 +56,7 @@ export const serverApi = createApi({
           if (missing.length) dispatch(serverApi.util.upsertQueryEntries(missing.map((person) => ({
             endpointName: "getPerson", arg: String(person.id), value: person,
           }))));
-        } catch { /* A failed next page leaves the already loaded users available. */ }
+        } catch { /* Загруженные страницы остаются доступны при ошибке. */ }
       },
     }),
     searchChats: build.infiniteQuery(infinitePages((query) =>
@@ -78,7 +78,7 @@ export const serverApi = createApi({
           if (Number.isFinite(count)) dispatch(updateCachedPost(postId, (post) => ({
             commentsCount: Math.max(post.commentsCount || 0, count),
           }), session));
-        } catch { /* Keep loaded comments and pending attempts while offline. */ }
+        } catch { /* Сохраняем кэш и очередь при ошибке загрузки. */ }
       },
     }),
     addComment: build.mutation({
@@ -95,11 +95,11 @@ export const serverApi = createApi({
           userId: author.id, author, text, date: new Date().toISOString() }));
         try {
           const { data: comment } = await queryFulfilled;
-          // A response from an earlier GET must not overwrite the new comment.
+          // Старый GET не должен затереть отправленный комментарий.
           await dispatch(serverApi.util.getRunningQueryThunk("getComments", postId));
           if (session !== getCacheSession()) return;
           dispatch(serverApi.util.updateQueryData("getComments", postId, (comments) => {
-            // The view sorts by date. Appending avoids cloning every previous row in a patch.
+            // Сортировка выполняется при выводе; push сохраняет ссылки на прежние строки.
             if (!pageRows(comments).some((item) => item.id === comment.id)) comments.pages[0]?.results.push(comment);
           }));
           dispatch(confirmedComment(attempt));
@@ -175,7 +175,7 @@ export const serverApi = createApi({
           const { data } = await queryFulfilled;
           if (session !== getCacheSession()) return;
           data.rows.forEach((message) => confirmOutboxMessage(message, dispatch, getState));
-        } catch { /* Cached history remains visible on a transient failure. */ }
+        } catch { /* При ошибке продолжаем показывать историю из кэша. */ }
       },
     }),
     sendMessage: build.mutation({
@@ -206,7 +206,7 @@ export const serverApi = createApi({
     }),
     loadOlderMessages: build.mutation({
       async queryFn(args, queryApi, _extra, load) {
-        // Wait for initial load / delta sync before choosing the oldest sequence.
+        // Дожидаемся текущей загрузки, чтобы правильно выбрать границу истории.
         await queryApi.dispatch(serverApi.util.getRunningQueryThunk("getMessages", args));
         if (queryApi.signal.aborted) return queryError(new Error("Aborted"));
         const cached = serverApi.endpoints.getMessages.select(args)(queryApi.getState()).data;
@@ -226,7 +226,7 @@ export const serverApi = createApi({
   }),
 });
 
-// Events arriving during a request get one more delta sync after it completes.
+// После текущего запроса забираем сообщения, пропущенные за время его выполнения.
 export const refreshMessages = (args) => async (dispatch, getState) => {
   const session = getCacheSession();
   await dispatch(serverApi.util.getRunningQueryThunk("getMessages", args));
@@ -253,7 +253,7 @@ function patchHistory(args, message, dispatch, getState) {
     return;
   }
   dispatch(serverApi.util.updateQueryData("getMessages", args, (history) => {
-    // Replacing the entire array makes Immer clone unchanged rows when applying patches.
+    // Точечная вставка сохраняет ссылки на неизменившиеся сообщения.
     const index = history.rows.findIndex((row) => row.sequence > message.sequence);
     if (index < 0) history.rows.push(message);
     else history.rows.splice(index, 0, message);
@@ -263,7 +263,7 @@ function patchHistory(args, message, dispatch, getState) {
       while (sequences.has(history.syncedSequence + 1)) history.syncedSequence++;
     }
   }));
-  // A later event must never move the HTTP cursor past a missed message.
+  // Пропущенное сообщение нужно получить до продвижения курсора.
   if (!args.query && message.sequence > head + 1) void dispatch(refreshMessages(args));
 }
 

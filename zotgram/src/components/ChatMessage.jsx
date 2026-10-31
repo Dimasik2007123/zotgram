@@ -40,8 +40,8 @@ function ChatMessage({ message, author, own, read, onImageLoad }) {
           <Attachment file={message.attachment} onImageLoad={onImageLoad} />
           <div className="chat__message-time">
             {dateFormat.format(new Date(message.createdAt))}
-            {message.delivery && <span className="chat__delivery" role="status">
-              {message.delivery === "sending" ? "Отправляется" : "Не отправлено"}
+            {message.delivery === "failed" && <span className="chat__delivery" role="status">
+              Не отправлено
             </span>}
             {own && !message.delivery && <span className="chat__message-status"
               aria-label={read ? "Прочитано" : "Сообщение сохранено"} title={read ? "Прочитано" : "Сообщение сохранено"}>

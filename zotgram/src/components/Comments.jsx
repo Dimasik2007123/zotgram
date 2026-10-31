@@ -29,8 +29,8 @@ const CommentRow = memo(function CommentRow({ comment, author, own }) {
         <div className="comments__text">{comment.text}</div>
         <div className="chat__message-time">
           {dateFormat.format(new Date(comment.date))}
-          {comment.delivery && <span className="comments__delivery" role="status">
-            {comment.delivery === "sending" ? "Отправляется" : "Не отправлено"}
+          {comment.delivery === "failed" && <span className="comments__delivery" role="status">
+            Не отправлено
           </span>}
         </div>
         {comment.delivery === "failed" && <div className="chat__delivery-error" role="alert">

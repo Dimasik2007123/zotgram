@@ -51,7 +51,6 @@ export function subscribePrivateFile(url, listener) {
   }
   clearTimeout(entry.timer);
   entry.listeners.add(listener);
-  // Refresh insertion order for eviction of the least recently used idle files.
   files.delete(url);
   files.set(url, entry);
   prune();
