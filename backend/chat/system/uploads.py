@@ -3,7 +3,8 @@ from uuid import uuid4
 from PIL import Image, UnidentifiedImageError
 from rest_framework.exceptions import ValidationError
 
-IMAGE_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png",
+# MPO stores JPEG frames; browsers can display its primary image as JPEG.
+IMAGE_TYPES = {"JPEG": "image/jpeg", "MPO": "image/jpeg", "PNG": "image/png",
                "WEBP": "image/webp", "GIF": "image/gif"}
 
 def upload_path(instance, filename):
