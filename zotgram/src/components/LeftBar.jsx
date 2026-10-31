@@ -80,8 +80,7 @@ function LeftBar() {
           {departments.data?.map((department) => {
             const isOwnDepartment = department.id === user?.department;
             const chat = chats.systemChats?.find(
-              (item) =>
-                item.type === "group" && item.departmentId === department.id,
+              (item) => item.departmentId === department.id,
             );
 
             return (
