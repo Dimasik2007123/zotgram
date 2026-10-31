@@ -13,6 +13,7 @@ const initialState = {
   unreadLoading: false,
   unreadRequestId: null,
   needsUnread: false,
+  updatesDuringLoad: {},
 };
 
 const fetchChats = createAsyncThunk("chats/fetch", async ({ ownerId, sync }) => ({
@@ -34,12 +35,39 @@ function updateCount(state, row) {
   // Запоздавший ответ не должен возвращать уже прочитанные сообщения.
   if (row.lastReadSequence < chat.lastReadSequence) return;
   if (row.lastSequence < Math.max(chat.lastSequence, chat.countedSequence || 0)) {
-    if (row.lastReadSequence > chat.lastReadSequence) state.needsUnread = true;
+    state.needsUnread = true;
     return;
   }
   chat.lastReadSequence = row.lastReadSequence;
   chat.unreadCount = row.unreadCount;
   chat.countedSequence = row.lastSequence;
+}
+
+function mergeSnapshot(state, old, row) {
+  if (!old) return row;
+  const merged = { ...row };
+  if (old.lastSequence > row.lastSequence) {
+    merged.lastSequence = old.lastSequence;
+    merged.lastMessage = old.lastMessage;
+    merged.updatedAt = old.updatedAt > row.updatedAt ? old.updatedAt : row.updatedAt;
+  }
+  if (old.lastReadSequence > row.lastReadSequence ||
+      Math.max(old.lastSequence, old.countedSequence || 0) > row.lastSequence) {
+    state.needsUnread = true;
+    merged.lastReadSequence = Math.max(old.lastReadSequence, row.lastReadSequence);
+    merged.unreadCount = old.unreadCount;
+    merged.countedSequence = old.countedSequence || old.lastSequence;
+  }
+  merged.members = row.members.map((member) => ({
+    ...member,
+    lastReadSequence: Math.max(member.lastReadSequence || 0,
+      old.members?.find((entry) => entry.userId === member.userId)?.lastReadSequence || 0),
+  }));
+  return merged;
+}
+
+function sortChats(items) {
+  items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id));
 }
 
 const chatsSlice = createSlice({
@@ -52,12 +80,48 @@ const chatsSlice = createSlice({
     },
     receivedRead(state, action) {
       const event = action.payload;
-      updateCount(state, {
-        id: event.chat_id,
-        lastReadSequence: event.sequence,
-        lastSequence: event.last_sequence,
-        unreadCount: event.unread_count,
-      });
+      const chat = state.items?.find((item) => item.id === event.chat_id);
+      const person = chat?.members.find((item) => item.userId === event.user_id);
+      if (person) person.lastReadSequence = Math.max(person.lastReadSequence || 0, event.sequence);
+      if (state.loading && chat) state.updatesDuringLoad[event.chat_id] = "updated";
+      if (event.user_id === state.ownerId) updateCount(state, {
+          id: event.chat_id,
+          lastReadSequence: event.sequence,
+          lastSequence: event.last_sequence,
+          unreadCount: event.unread_count,
+        });
+    },
+    receivedMessage(state, { payload: message }) {
+      const chat = state.items?.find((item) => item.id === message.chatId);
+      if (!chat) return;
+      const previous = chat.lastSequence || 0;
+      const counted = Math.max(previous, chat.countedSequence || 0);
+      if (message.sequence > counted) {
+        if (message.sequence > counted + 1) state.needsUnread = true;
+        if (message.authorId !== state.ownerId && message.sequence > chat.lastReadSequence) {
+          chat.unreadCount = (chat.unreadCount || 0) + 1;
+        }
+        chat.countedSequence = message.sequence;
+      }
+      if (message.sequence > previous) {
+        chat.lastSequence = message.sequence;
+        chat.lastMessage = message;
+        chat.updatedAt = message.createdAt;
+        sortChats(state.items);
+      }
+      if (state.loading) state.updatesDuringLoad[message.chatId] = "updated";
+    },
+    upsertChat(state, { payload: row }) {
+      state.items ??= [];
+      const index = state.items.findIndex((item) => item.id === row.id);
+      if (index < 0) state.items.push(row);
+      else state.items[index] = mergeSnapshot(state, state.items[index], row);
+      sortChats(state.items);
+      if (state.loading) state.updatesDuringLoad[row.id] = "updated";
+    },
+    removeChat(state, { payload: chatId }) {
+      if (state.items) state.items = state.items.filter((item) => item.id !== chatId);
+      if (state.loading) state.updatesDuringLoad[chatId] = "removed";
     },
   },
   extraReducers: (builder) => {
@@ -75,25 +139,19 @@ const chatsSlice = createSlice({
         state.requestId = action.meta.requestId;
         state.queued = false;
         state.syncNext = false;
+        state.updatesDuringLoad = {};
       })
       .addCase(fetchChats.fulfilled, (state, action) => {
         if (state.requestId !== action.meta.requestId || state.ownerId !== action.payload.ownerId) return;
         const previous = new Map((state.items || []).map((chat) => [chat.id, chat]));
-        state.items = action.payload.items.map((row) => {
-          const old = previous.get(row.id);
-          if (!old) return row;
-          if (old.lastReadSequence > row.lastReadSequence ||
-              Math.max(old.lastSequence, old.countedSequence || 0) > row.lastSequence) {
-            state.needsUnread = true;
-            return {
-              ...row,
-              lastReadSequence: Math.max(old.lastReadSequence, row.lastReadSequence),
-              unreadCount: old.unreadCount,
-              countedSequence: old.countedSequence || old.lastSequence,
-            };
-          }
-          return row;
+        const rows = action.payload.items.filter((row) => state.updatesDuringLoad[row.id] !== "removed");
+        const ids = new Set(rows.map((row) => row.id));
+        state.items = rows.map((row) => mergeSnapshot(state, previous.get(row.id), row));
+        previous.forEach((row, id) => {
+          if (!ids.has(id) && state.updatesDuringLoad[id] === "updated") state.items.push(row);
         });
+        sortChats(state.items);
+        state.updatesDuringLoad = {};
         state.loading = false;
         state.requestId = null;
       })
@@ -154,8 +212,9 @@ export const loadChats = ({ force = false, sync = false } = {}) => async (dispat
 };
 
 export const applyRead = (event) => (dispatch, getState) => {
-  if (event.user_id !== getState().user.user?.id) return;
-  if (event.unread_count == null || event.last_sequence == null) {
+  if (!getState().user.user?.id) return;
+  if (event.user_id === getState().user.user.id &&
+      (event.unread_count == null || event.last_sequence == null)) {
     void dispatch(refreshUnread());
     return;
   }
@@ -163,4 +222,5 @@ export const applyRead = (event) => (dispatch, getState) => {
   if (getState().chats.needsUnread) void dispatch(refreshUnread());
 };
 
+export const { receivedMessage, upsertChat, removeChat } = chatsSlice.actions;
 export default chatsSlice.reducer;

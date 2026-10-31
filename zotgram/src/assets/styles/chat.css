@@ -159,6 +159,30 @@
   flex-direction: row-reverse;
 }
 
+.chat__delivery {
+  font-style: italic;
+}
+
+.chat__delivery-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: #a12222;
+  font-size: 12px;
+}
+
+.chat__delivery-error button {
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 3px 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 .chat__message-avatar {
   width: 32px;
   height: 32px;

@@ -1,4 +1,5 @@
-import { api } from "./client";
+import { store } from "../store";
+import { serverApi } from "./serverApi";
 
 export function startMessageNotifications(userId, navigate) {
   if (!("Notification" in window) || !window.isSecureContext) {
@@ -50,12 +51,16 @@ export function startMessageNotifications(userId, navigate) {
     if (Notification.permission !== "granted") return;
 
     try {
+      const state = store.getState();
+      const cachedAuthor = serverApi.endpoints.getPerson.select(String(message.authorId))(state).data;
+      const cachedChat = state.chats.items?.find((item) => item.id === event.chat_id)
+        || serverApi.endpoints.getChat.select(event.chat_id)(state).data;
       const [author, chat] = await Promise.all([
-        api(`/api/core/users/${message.authorId}/`),
-        api(`/api/chat/chats/${event.chat_id}/`),
+        cachedAuthor || store.dispatch(serverApi.endpoints.getPerson.initiate(String(message.authorId), { subscribe: false })).unwrap(),
+        cachedChat || store.dispatch(serverApi.endpoints.getChat.initiate(event.chat_id, { subscribe: false })).unwrap(),
       ]);
 
-      if (stopped || Notification.permission !== "granted") return;
+      if (stopped || Notification.permission !== "granted" || store.getState().user.user?.id !== userId) return;
 
       const authorName =
         [author.name, author.lastname].filter(Boolean).join(" ") ||

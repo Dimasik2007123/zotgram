@@ -32,14 +32,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !userId) return;
     const stopUpdates = startChatUpdates(dispatch);
     const stopRealtime = startRealtime();
     return () => {
       stopUpdates();
       stopRealtime();
     };
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch, isAuthenticated, userId]);
 
   useEffect(() => {
     if (!isAuthenticated || !userId) return;

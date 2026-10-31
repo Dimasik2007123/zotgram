@@ -1,11 +1,11 @@
-import statusText from "../utils/statusText";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { api, changed } from "../api/client";
 import { useMessages, usePeople, usePrivateFile, useChat } from "../api/hooks";
 import { chatAvatarUrl } from "../api/privateFiles";
+import { submitMessage, retryMessage } from "../api/serverApi";
 import getUserColor from "../utils/getUserColor.js";
 import GroupInfoModal from "./GroupInfoModal.jsx";
 import info from "../assets/images/info.svg";
@@ -18,7 +18,8 @@ const attachmentsEnabled = true;
 const groupsEnabled = true;
 
 function Attachment({ file, onImageLoad }) {
-  const url = usePrivateFile(file?.url || "");
+  const remoteUrl = usePrivateFile(file?.url || "");
+  const url = file?.localUrl || remoteUrl;
   if (!file) return null;
   const isImage = file.mime?.startsWith("image/");
   return (
@@ -49,13 +50,13 @@ function Attachment({ file, onImageLoad }) {
 }
 
 function ChatContent() {
+  const dispatch = useDispatch();
   const { chatId } = useParams();
   const navigate = useNavigate();
   const currentUser = useSelector((state) => state.user.user);
   const [params] = useSearchParams();
   const query = (params.get("q") || "").trim();
   const chatState = useChat(chatId);
-  const reloadChat = chatState.reload;
   const chat = chatState.data;
   const messagesState = useMessages(chatId, query);
   const chatMessages = messagesState.rows;
@@ -77,33 +78,11 @@ function ChatContent() {
   const messageInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const stickToBottomRef = useRef(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [pendingAttempt, setPendingAttempt] = useState(null);
   const sendingRef = useRef(false);
   const lastRead = useRef(0);
   const pendingRead = useRef(0);
-  const latest = chatMessages.at(-1)?.sequence || 0;
+  const latest = messagesState.latestSequence;
   const chatReady = Boolean(chat) && !chatState.loading;
-
-  useEffect(() => {
-    const handleReadUpdated = ({ detail: { topic, event } }) => {
-      if (
-        topic === "reads" &&
-        event?.type === "read.updated" &&
-        event.chat_id === chatId &&
-        String(event.user_id) !== String(currentUser.id)
-      ) {
-        reloadChat();
-      }
-    };
-
-    window.addEventListener("zotgram:changed", handleReadUpdated);
-
-    return () => {
-      window.removeEventListener("zotgram:changed", handleReadUpdated);
-    };
-  }, [chatId, currentUser.id, reloadChat]);
 
   useEffect(() => {
     const mark = async () => {
@@ -152,7 +131,7 @@ function ChatContent() {
   }, [chatId, latest, currentUser.id, chatReady, query]);
 
   const handleFileChange = (e) => {
-    if (!attachmentsEnabled || busy || pendingAttempt) return;
+    if (!attachmentsEnabled) return;
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       setFile(selectedFile);
@@ -161,60 +140,27 @@ function ChatContent() {
   };
 
   const handleRemoveFile = () => {
-    if (busy || pendingAttempt) return;
     setFile(null);
     setFilePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = (e) => {
     e.preventDefault();
     if (
       sendingRef.current ||
       (!newMessage.trim() && !(attachmentsEnabled && file))
     )
       return;
-    const attempt = pendingAttempt || {
-      id: crypto.randomUUID(),
-      text: newMessage,
-      file,
-    };
-    const body = new FormData();
-    body.set("text", attempt.text);
-    body.set("attempt_id", attempt.id);
-
-    if (attempt.file) {
-      body.set("file", attempt.file);
-    }
     sendingRef.current = true;
-    setPendingAttempt(attempt);
-    setBusy(true);
-    setError("");
-    try {
-      await api(`/api/chat/chats/${chatId}/messages/`, {
-        method: "POST",
-        body,
-      });
-      setNewMessage("");
-      setFile(null);
-      setFilePreview(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      setPendingAttempt(null);
-      changed("messages");
-      changed("chats");
-      messageInputRef.current?.focus();
-    } catch (error) {
-      if (
-        error.status &&
-        error.status < 500 &&
-        ![408, 429].includes(error.status)
-      )
-        setPendingAttempt(null);
-      setError(statusText(error.message || "Не удалось отправить сообщение"));
-    } finally {
-      sendingRef.current = false;
-      setBusy(false);
-    }
+    void dispatch(submitMessage({ chatId, text: newMessage,
+      file: attachmentsEnabled ? file : null, attemptId: crypto.randomUUID() }));
+    setNewMessage("");
+    setFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    messageInputRef.current?.focus();
+    queueMicrotask(() => { sendingRef.current = false; });
   };
 
   const handleUpdateChat = async (updatedChat) => {
@@ -375,7 +321,7 @@ function ChatContent() {
           chatMessages.map((msg) => {
             const isOwn = String(msg.authorId) === String(currentUser.id);
             const isRead =
-              isOwn &&
+              isOwn && !msg.delivery &&
               (chat.members || []).some(
                 (member) =>
                   String(member.userId) !== String(msg.authorId) &&
@@ -422,7 +368,12 @@ function ChatContent() {
                         minute: "2-digit",
                       })}
 
-                      {isOwn && (
+                      {msg.delivery && (
+                        <span className="chat__delivery" role="status">
+                          {msg.delivery === "sending" ? "Отправляется" : "Не отправлено"}
+                        </span>
+                      )}
+                      {isOwn && !msg.delivery && (
                         <span
                           className="chat__message-status"
                           aria-label={
@@ -435,6 +386,14 @@ function ChatContent() {
                         </span>
                       )}
                     </div>
+                    {msg.delivery === "failed" && (
+                      <div className="chat__delivery-error" role="alert">
+                        <span>{msg.deliveryError}</span>
+                        <button type="button" onClick={() => dispatch(retryMessage(msg.attempt_id))}>
+                          Повторить
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -443,20 +402,13 @@ function ChatContent() {
         )}
       </div>
 
-      {error && (
-        <p className="status-message" role="alert">
-          {error}{" "}
-          {pendingAttempt &&
-            "Повторите отправку, чтобы завершить прежнюю попытку"}
-        </p>
-      )}
       <form className="chat__input-form" onSubmit={handleSendMessage}>
         <div className="chat__input-wrapper">
           <button
             type="button"
             className="chat__input-attach"
             onClick={() => fileInputRef.current?.click()}
-            disabled={!attachmentsEnabled || busy || Boolean(pendingAttempt)}
+            disabled={!attachmentsEnabled}
           >
             <img src={attach} alt="Прикрепить файл" />
           </button>
@@ -464,7 +416,7 @@ function ChatContent() {
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            disabled={!attachmentsEnabled || busy || Boolean(pendingAttempt)}
+            disabled={!attachmentsEnabled}
             style={{ display: "none" }}
           />
 
@@ -475,7 +427,6 @@ function ChatContent() {
             placeholder="Введите сообщение..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            readOnly={busy || Boolean(pendingAttempt)}
           />
 
           {filePreview && (
@@ -486,7 +437,6 @@ function ChatContent() {
                 type="button"
                 className="chat__input-file-remove"
                 onClick={handleRemoveFile}
-                disabled={busy || Boolean(pendingAttempt)}
               >
                 ✕
               </button>
@@ -497,7 +447,7 @@ function ChatContent() {
             type="submit"
             className="chat__input-send"
             disabled={
-              busy || (!newMessage.trim() && !(attachmentsEnabled && file))
+              !newMessage.trim() && !(attachmentsEnabled && file)
             }
           >
             <img src={send} alt="Отправить" />

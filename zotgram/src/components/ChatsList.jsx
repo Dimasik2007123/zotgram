@@ -37,7 +37,7 @@ function ChatsList() {
             Math.max(cached.lastSequence, cached.countedSequence || 0) >=
               item.lastSequence;
           return freshCount
-            ? { ...item, unreadCount: cached.unreadCount }
+            ? cached
             : item;
         }),
       }

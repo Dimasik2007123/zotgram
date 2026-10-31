@@ -1,7 +1,7 @@
 import statusText from "../utils/statusText";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../api/client";
 import Comments from "./Comments";
 import like from "../assets/images/like.svg";
@@ -13,6 +13,7 @@ import getUserColor from "../utils/getUserColor";
 function Post({ post, showActivity = true }) {
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const liking = useRef(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [savedPost, setSavedPost] = useState(null);
@@ -126,18 +127,30 @@ function Post({ post, showActivity = true }) {
   };
 
   const handleLike = async () => {
-    if (busy) return;
+    if (liking.current) return;
+    liking.current = true;
     setBusy(true);
     setError("");
+    const before = { isLiked, likesCount };
+    setSavedPost({ source: post, value: {
+      ...value, isLiked: !isLiked, likesCount: Math.max(0, likesCount + (isLiked ? -1 : 1)),
+    } });
     try {
       const updated = await api(`/api/core/posts/${value.id}/like/`, {
         method: isLiked ? "DELETE" : "PUT",
       });
-      setSavedPost({ source: post, value: updated });
+      setSavedPost((previous) => ({ source: post, value: {
+        ...(previous?.source === post ? previous.value : post),
+        isLiked: updated.isLiked, likesCount: updated.likesCount,
+      } }));
     } catch (error) {
+      setSavedPost((previous) => ({ source: post, value: {
+        ...(previous?.source === post ? previous.value : post), ...before,
+      } }));
       setError(statusText(error.message || "Не удалось изменить лайк"));
     } finally {
       setBusy(false);
+      liking.current = false;
     }
   };
 

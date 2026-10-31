@@ -133,9 +133,11 @@ export function useMessages(chatId, query = "") {
   const args = useMemo(() => ({ chatId, query }), [chatId, query]);
   const state = serverApi.useGetMessagesQuery(args, { refetchOnMountOrArgChange: true });
   const [loadOlder, olderState] = serverApi.useLoadOlderMessagesMutation();
+  const outbox = useSelector((state) => state.outbox.items);
   useEffect(() => {
     const handle = ({ detail: { topic, event } }) => {
-      if (topic === "messages" && (!event?.chat_id || event.chat_id === chatId)) {
+      if (topic === "messages" && event?.type !== "message.created" &&
+          (!event?.chat_id || event.chat_id === chatId)) {
         void dispatch(refreshMessages(args));
       }
     };
@@ -143,8 +145,14 @@ export function useMessages(chatId, query = "") {
     return () => window.removeEventListener("zotgram:changed", handle);
   }, [dispatch, args, chatId]);
   const denied = accessDenied(state.error) || accessDenied(olderState.error);
+  const rows = useMemo(() => [
+    ...(state.currentData?.rows || []),
+    ...outbox.filter((item) => item.chatId === chatId &&
+      (!query || item.content.toLowerCase().includes(query.toLowerCase()))),
+  ], [state.currentData?.rows, outbox, chatId, query]);
   return {
-    rows: denied ? [] : (state.currentData?.rows || []),
+    rows: denied ? [] : rows,
+    latestSequence: denied ? 0 : (state.currentData?.syncedSequence || 0),
     older: !denied && Boolean(state.currentData?.older),
     error: state.error?.message || olderState.error?.message || "",
     loading: state.isLoading,

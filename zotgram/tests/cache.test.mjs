@@ -12,11 +12,20 @@ const vite = await createServer({
 const originalFetch = globalThis.fetch;
 const originalChannel = globalThis.BroadcastChannel;
 globalThis.BroadcastChannel = undefined;
-const { serverApi, refreshMessages } = await vite.ssrLoadModule("/src/api/serverApi.js");
+const { serverApi, refreshMessages, applyIncomingMessage, submitMessage, retryMessage } = await vite.ssrLoadModule("/src/api/serverApi.js");
 const { store } = await vite.ssrLoadModule("/src/store/index.js");
 const { login, logout } = await vite.ssrLoadModule("/src/store/userReducer.js");
 const { setAccess } = await vite.ssrLoadModule("/src/api/session.js");
 const { subscribePrivateFile, getPrivateFile, chatAvatarUrl } = await vite.ssrLoadModule("/src/api/privateFiles.js");
+const { upsertChat, loadChats } = await vite.ssrLoadModule("/src/store/chatsReducer.js");
+const { startChatUpdates } = await vite.ssrLoadModule("/src/api/chatUpdates.js");
+const { startRealtime } = await vite.ssrLoadModule("/src/api/realtime.js");
+const { startMessageNotifications } = await vite.ssrLoadModule("/src/api/notifications.js");
+const { changed } = await vite.ssrLoadModule("/src/api/client.js");
+const { getOutboxFile } = await vite.ssrLoadModule("/src/api/outboxFiles.js");
+const originalWindow = globalThis.window;
+const originalDocument = globalThis.document;
+const originalLocation = globalThis.location;
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { "Content-Type": "application/json" },
@@ -38,17 +47,49 @@ const query = (name, args, options = {}) => store.dispatch(
 );
 const cached = (name, args) => serverApi.endpoints[name].select(args)(store.getState());
 const historyArgs = { chatId: "chat-a", query: "" };
-const message = (sequence) => ({ id: `message-${sequence}`, sequence, content: `Text ${sequence}` });
+const message = (sequence, overrides = {}) => ({
+  id: `message-${sequence}`, sequence, content: `Text ${sequence}`, chatId: "chat-a", authorId: "person",
+  createdAt: new Date(1793437200000 + sequence * 1000).toISOString(), attempt_id: `attempt-${sequence}`, ...overrides,
+});
+const chat = (overrides = {}) => ({
+  id: "chat-a", name: "Test chat", type: "group", participants: ["owner-a", "person"],
+  members: [{ userId: "owner-a", lastReadSequence: 0 }, { userId: "person", lastReadSequence: 0 }],
+  lastSequence: 1, lastReadSequence: 0, unreadCount: 1, lastMessage: message(1),
+  updatedAt: message(1).createdAt, ...overrides,
+});
+const seedChat = async () => {
+  store.dispatch(upsertChat(chat()));
+  await store.dispatch(serverApi.util.upsertQueryData("getChat", "chat-a", chat()));
+  await store.dispatch(serverApi.util.upsertQueryData("getMessages", historyArgs, {
+    rows: [message(1)], older: false, syncedSequence: 1,
+  }));
+};
+let unexpectedRequests;
 
 beforeEach(() => {
   setAccess("test-access");
   store.dispatch(login({ id: "owner-a" }));
-  globalThis.fetch = () => { throw new Error("Unexpected network request"); };
+  globalThis.window = new EventTarget();
+  globalThis.document = new EventTarget();
+  globalThis.document.visibilityState = "visible";
+  globalThis.location = new URL("http://localhost/");
+  window.location = globalThis.location;
+  unexpectedRequests = [];
+  globalThis.fetch = (path) => {
+    unexpectedRequests.push(path);
+    throw new Error("Unexpected network request");
+  };
 });
-afterEach(() => store.dispatch(logout()));
+afterEach(() => {
+  store.dispatch(logout());
+  assert.deepEqual(unexpectedRequests, [], "Unexpected HTTP requests escaped the scenario");
+});
 after(async () => {
   globalThis.fetch = originalFetch;
   globalThis.BroadcastChannel = originalChannel;
+  globalThis.window = originalWindow;
+  globalThis.document = originalDocument;
+  globalThis.location = originalLocation;
   await vite.close();
 });
 
@@ -300,4 +341,331 @@ test("logout aborts in-flight work and late responses cannot populate the next a
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(cached("getComments", "private-post").data, undefined);
   assert.equal(Object.keys(store.getState().serverApi.queries).length, 0);
+});
+
+test("message events update cached chats and history without HTTP; duplicates do not change unread counts", async (t) => {
+  await seedChat();
+  const other = chat({ id: "chat-b" });
+  store.dispatch(upsertChat(other));
+  const untouched = store.getState().chats.items.find((item) => item.id === "chat-b");
+  const stop = startChatUpdates(store.dispatch);
+  t.after(stop);
+  const event = { type: "message.created", chat_id: "chat-a", message: message(2) };
+  changed("messages", event);
+  const rows = cached("getMessages", historyArgs).data.rows;
+  changed("messages", event);
+  assert.equal(store.getState().chats.items[0].id, "chat-a");
+  assert.equal(store.getState().chats.items[0].unreadCount, 2);
+  assert.equal(store.getState().chats.items[0].lastSequence, 2);
+  assert.equal(cached("getChat", "chat-a").data.lastMessage.id, "message-2");
+  assert.equal(cached("getMessages", historyArgs).data.syncedSequence, 2);
+  assert.equal(cached("getMessages", historyArgs).data.rows, rows);
+  assert.equal(store.getState().chats.items.find((item) => item.id === "chat-b"), untouched);
+});
+
+test("unknown chats fetch only their metadata and replay the arriving message over an older snapshot", async () => {
+  const paths = [];
+  globalThis.fetch = async (path) => { paths.push(path); return json(chat()); };
+  store.dispatch(applyIncomingMessage(message(2)));
+  await waitFor(() => store.getState().chats.items?.[0]?.lastSequence === 2);
+  assert.deepEqual(paths, ["/api/chat/chats/chat-a/"]);
+  assert.equal(cached("getChat", "chat-a").data.lastSequence, 2);
+  assert.equal(store.getState().chats.items[0].unreadCount, 2);
+});
+
+test("out-of-order events repair missing messages from the contiguous cursor", async () => {
+  await seedChat();
+  const paths = [];
+  globalThis.fetch = async (path) => {
+    paths.push(path);
+    if (path.includes("/unread/")) return json({ chats: [{ id: "chat-a", lastSequence: 4, lastReadSequence: 0, unreadCount: 4 }] });
+    return json({ results: [message(2), message(3), message(4)], has_more: false });
+  };
+  store.dispatch(applyIncomingMessage(message(4)));
+  assert.equal(cached("getMessages", historyArgs).data.syncedSequence, 1);
+  await waitFor(() => cached("getMessages", historyArgs).data.syncedSequence === 4);
+  await waitFor(() => store.getState().chats.items[0].unreadCount === 4);
+  assert.ok(paths.some((path) => path.includes("after=1")));
+  assert.ok(paths.every((path) => !path.includes("after=4")));
+  assert.deepEqual(cached("getMessages", historyArgs).data.rows.map((item) => item.sequence), [1, 2, 3, 4]);
+});
+
+test("message events update matching search results without fetching and leave other searches alone", async () => {
+  await seedChat();
+  const args = { ...historyArgs, query: "hello" };
+  await store.dispatch(serverApi.util.upsertQueryData("getMessages", args, {
+    rows: [], older: false, syncedSequence: 0,
+  }));
+  store.dispatch(applyIncomingMessage(message(2, { content: "HELLO new" })));
+  store.dispatch(applyIncomingMessage(message(3, { content: "Another message" })));
+  assert.deepEqual(cached("getMessages", args).data.rows.map((item) => item.sequence), [2]);
+  assert.equal(cached("getMessages", args).data.syncedSequence, 0);
+  assert.equal(cached("getMessages", historyArgs).data.syncedSequence, 3);
+});
+
+test("events received before the initial history response are replayed without an extra GET", async () => {
+  store.dispatch(upsertChat(chat()));
+  const response = deferred();
+  let requests = 0;
+  globalThis.fetch = async () => { requests++; return response.promise; };
+  const initial = query("getMessages", historyArgs);
+  store.dispatch(applyIncomingMessage(message(2)));
+  response.resolve(json({ results: [message(1)], has_more: false }));
+  await initial;
+  await waitFor(() => cached("getMessages", historyArgs).data.syncedSequence === 2);
+  assert.equal(requests, 1);
+  assert.deepEqual(cached("getMessages", historyArgs).data.rows.map((item) => item.sequence), [1, 2]);
+});
+
+test("a slow delta response does not overwrite newer events already applied to the cache", async () => {
+  await seedChat();
+  const response = deferred();
+  globalThis.fetch = async () => response.promise;
+  const refresh = query("getMessages", historyArgs, { forceRefetch: true });
+  store.dispatch(applyIncomingMessage(message(2)));
+  response.resolve(json({ results: [], has_more: false }));
+  await refresh;
+  assert.equal(cached("getMessages", historyArgs).data.syncedSequence, 2);
+  assert.deepEqual(cached("getMessages", historyArgs).data.rows.map((item) => item.sequence), [1, 2]);
+});
+
+test("read receipts update members and own unread counts without requesting chat metadata", async (t) => {
+  await seedChat();
+  t.after(startChatUpdates(store.dispatch));
+  changed("reads", { type: "read.updated", chat_id: "chat-a", user_id: "person", sequence: 1 });
+  assert.equal(cached("getChat", "chat-a").data.members[1].lastReadSequence, 1);
+  assert.equal(store.getState().chats.items[0].members[1].lastReadSequence, 1);
+  changed("reads", { type: "read.updated", chat_id: "chat-a", user_id: "owner-a", sequence: 1, last_sequence: 1, unread_count: 0 });
+  assert.equal(store.getState().chats.items[0].unreadCount, 0);
+  changed("reads", { type: "read.updated", chat_id: "chat-a", user_id: "owner-a", sequence: 0, last_sequence: 1, unread_count: 1 });
+  assert.equal(store.getState().chats.items[0].unreadCount, 0);
+});
+
+test("stale full-list responses cannot undo newer messages, read receipts, additions, or removals", async (t) => {
+  await seedChat();
+  t.after(startChatUpdates(store.dispatch));
+  const response = deferred();
+  globalThis.fetch = async (path) => path.includes("/unread/")
+    ? json({ chats: [{ id: "chat-a", lastSequence: 2, lastReadSequence: 2, unreadCount: 0 }] })
+    : response.promise;
+  const loading = store.dispatch(loadChats({ force: true }));
+  store.dispatch(applyIncomingMessage(message(2)));
+  changed("reads", { type: "read.updated", chat_id: "chat-a", user_id: "owner-a", sequence: 2, last_sequence: 2, unread_count: 0 });
+  changed("reads", { type: "read.updated", chat_id: "chat-a", user_id: "person", sequence: 2 });
+  store.dispatch(upsertChat(chat({ id: "new-chat" })));
+  changed("chats", { type: "chat.removed", chat_id: "deleted-chat" });
+  response.resolve(json({ results: [chat(), chat({ id: "deleted-chat" })], next: null }));
+  await loading;
+  const item = store.getState().chats.items.find((entry) => entry.id === "chat-a");
+  assert.equal(item.lastMessage.id, "message-2");
+  assert.equal(item.lastReadSequence, 2);
+  assert.equal(item.unreadCount, 0);
+  assert.equal(item.members[1].lastReadSequence, 2);
+  assert.ok(store.getState().chats.items.some((entry) => entry.id === "new-chat"));
+  assert.ok(!store.getState().chats.items.some((entry) => entry.id === "deleted-chat"));
+});
+
+test("optimistic messages appear before HTTP completion and successful sends need no GET", async () => {
+  await seedChat();
+  const responses = [deferred(), deferred()];
+  let requests = 0;
+  globalThis.fetch = async (_path, options) => {
+    assert.equal(options.method, "POST");
+    return responses[requests++].promise;
+  };
+  const first = store.dispatch(submitMessage({ chatId: "chat-a", text: "First", attemptId: "send-1" }));
+  const second = store.dispatch(submitMessage({ chatId: "chat-a", text: "Second", attemptId: "send-2" }));
+  assert.equal(store.getState().outbox.items.length, 2);
+  assert.ok(store.getState().outbox.items.every((item) => item.delivery === "sending"));
+  responses[0].resolve(json(message(2, { authorId: "owner-a", attempt_id: "send-1" }), 201));
+  await first;
+  responses[1].resolve(json(message(3, { authorId: "owner-a", attempt_id: "send-2" }), 201));
+  await second;
+  await waitFor(() => store.getState().outbox.items.length === 0);
+  assert.equal(requests, 2);
+  assert.equal(store.getState().chats.items[0].unreadCount, 1);
+  assert.deepEqual(cached("getMessages", historyArgs).data.rows.map((item) => item.sequence), [1, 2, 3]);
+});
+
+test("failed sends retain the original file and retry with the same attempt ID", async () => {
+  await seedChat();
+  const file = new File(["file content"], "example.txt", { type: "text/plain" });
+  const attempts = [];
+  globalThis.fetch = async (_path, options) => {
+    attempts.push({ id: options.body.get("attempt_id"), file: options.body.get("file") });
+    return attempts.length === 1 ? json({ detail: "Unavailable" }, 503)
+      : json(message(2, { authorId: "owner-a", attempt_id: "retry-me" }), 200);
+  };
+  await store.dispatch(submitMessage({ chatId: "chat-a", text: "With file", file, attemptId: "retry-me" }));
+  await waitFor(() => store.getState().outbox.items[0]?.delivery === "failed");
+  const preview = store.getState().outbox.items[0].attachment.localUrl;
+  assert.equal(getOutboxFile("retry-me"), file);
+  await store.dispatch(retryMessage("retry-me"));
+  await waitFor(() => store.getState().outbox.items.length === 0);
+  assert.deepEqual(attempts.map((attempt) => attempt.id), ["retry-me", "retry-me"]);
+  assert.ok(attempts.every((attempt) => attempt.file.name === "example.txt" && attempt.file.size === file.size));
+  assert.equal(getOutboxFile("retry-me"), undefined);
+  await assert.rejects(originalFetch(preview));
+  assert.equal(cached("getMessages", historyArgs).data.rows.length, 2);
+});
+
+test("a WebSocket acknowledgement before HTTP failure confirms the message exactly once", async (t) => {
+  await seedChat();
+  t.after(startChatUpdates(store.dispatch));
+  const response = deferred();
+  globalThis.fetch = async () => response.promise;
+  const request = store.dispatch(submitMessage({ chatId: "chat-a", text: "Hello", attemptId: "early-ack" }));
+  changed("messages", { type: "message.created", chat_id: "chat-a",
+    message: message(2, { authorId: "owner-a", attempt_id: "early-ack" }) });
+  assert.equal(store.getState().outbox.items.length, 0);
+  response.resolve(json({ detail: "Unavailable" }, 503));
+  await request;
+  assert.equal(store.getState().outbox.items.length, 0);
+  assert.deepEqual(cached("getMessages", historyArgs).data.rows.map((item) => item.sequence), [1, 2]);
+});
+
+test("an uncertain send is confirmed later by HTTP history reconciliation", async () => {
+  await seedChat();
+  globalThis.fetch = async () => json({ detail: "Unavailable" }, 503);
+  await store.dispatch(submitMessage({ chatId: "chat-a", text: "Hello", attemptId: "lost-response" }));
+  await waitFor(() => store.getState().outbox.items[0]?.delivery === "failed");
+  globalThis.fetch = async () => json({ results: [message(2, { authorId: "owner-a", attempt_id: "lost-response" })], has_more: false });
+  await query("getMessages", historyArgs, { forceRefetch: true });
+  await waitFor(() => store.getState().outbox.items.length === 0);
+});
+
+test("another author cannot acknowledge an outgoing attempt with the same ID", async () => {
+  await seedChat();
+  const response = deferred();
+  globalThis.fetch = async () => response.promise;
+  const request = store.dispatch(submitMessage({ chatId: "chat-a", text: "Hello", attemptId: "same-id" }));
+  store.dispatch(applyIncomingMessage(message(2, { attempt_id: "same-id" })));
+  assert.equal(store.getState().outbox.items.length, 1);
+  response.resolve(json(message(3, { authorId: "owner-a", attempt_id: "same-id" }), 201));
+  await request;
+  await waitFor(() => store.getState().outbox.items.length === 0);
+});
+
+test("logout clears pending uploads and old responses cannot affect a new login of the same account", async () => {
+  await seedChat();
+  const response = deferred();
+  globalThis.fetch = async () => response.promise;
+  const file = new File(["private file"], "private.txt");
+  const request = store.dispatch(submitMessage({ chatId: "chat-a", text: "Private", file, attemptId: "old-session" }));
+  const preview = store.getState().outbox.items[0].attachment.localUrl;
+  store.dispatch(logout());
+  store.dispatch(login({ id: "owner-a" }));
+  await seedChat();
+  response.resolve(json(message(2, { authorId: "owner-a", attempt_id: "old-session" }), 201));
+  await request;
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(store.getState().outbox.items.length, 0);
+  assert.equal(getOutboxFile("old-session"), undefined);
+  assert.deepEqual(cached("getMessages", historyArgs).data.rows.map((item) => item.sequence), [1]);
+  await assert.rejects(originalFetch(preview));
+});
+
+test("a stale unread response is retried when newer events have already advanced its sequence", async () => {
+  await seedChat();
+  const response = deferred();
+  let counters = 0;
+  globalThis.fetch = async (path) => {
+    if (path.includes("/unread/")) return ++counters === 1 ? response.promise
+      : json({ chats: [{ id: "chat-a", lastSequence: 4, lastReadSequence: 0, unreadCount: 4 }] });
+    return json({ results: [message(2), message(3)], has_more: false });
+  };
+  store.dispatch(applyIncomingMessage(message(3)));
+  await waitFor(() => cached("getMessages", historyArgs).data.syncedSequence === 3);
+  store.dispatch(applyIncomingMessage(message(4)));
+  response.resolve(json({ chats: [{ id: "chat-a", lastSequence: 3, lastReadSequence: 0, unreadCount: 3 }] }));
+  await waitFor(() => store.getState().chats.items[0].unreadCount === 4);
+  assert.equal(counters, 2);
+});
+
+test("a removed chat is not resurrected by a late metadata response or an older read receipt", async (t) => {
+  await seedChat();
+  t.after(startChatUpdates(store.dispatch));
+  const response = deferred();
+  globalThis.fetch = async () => response.promise;
+  changed("chats", { type: "chat.updated", chat_id: "chat-a" });
+  changed("chats", { type: "chat.removed", chat_id: "chat-a" });
+  changed("reads", { type: "read.updated", chat_id: "chat-a", user_id: "person", sequence: 1 });
+  response.resolve(json(chat()));
+  await waitFor(() => cached("getChat", "chat-a").data === null);
+  assert.ok(!store.getState().chats.items.some((item) => item.id === "chat-a"));
+});
+
+test("notifications reuse cached authors and chat metadata", async (t) => {
+  await seedChat();
+  await store.dispatch(serverApi.util.upsertQueryData("getPerson", "person", { id: "person", name: "Anna" }));
+  const originalNotification = globalThis.Notification;
+  const shown = [];
+  class FakeNotification {
+    static permission = "granted";
+    constructor(title, options) { shown.push({ title, options }); }
+    close() {}
+  }
+  globalThis.Notification = FakeNotification;
+  window.Notification = FakeNotification;
+  window.isSecureContext = true;
+  t.after(() => { globalThis.Notification = originalNotification; });
+  t.after(startMessageNotifications("owner-a", () => {}));
+  changed("messages", { type: "message.created", chat_id: "chat-a", message: message(2) });
+  await waitFor(() => shown.length === 1);
+  assert.equal(shown[0].title, "ZotGram — Test chat");
+  assert.ok(shown[0].options.body.includes("Anna"));
+});
+
+test("heartbeats avoid HTTP refreshes on each pong while periodic reconciliation remains enabled", async (t) => {
+  let clock = 1000000;
+  t.mock.method(Date, "now", () => clock);
+  let heartbeat;
+  t.mock.method(globalThis, "setInterval", (handler) => { heartbeat = handler; return 123; });
+  const sockets = [];
+  class FakeSocket {
+    static OPEN = 1;
+    readyState = 1;
+    sent = [];
+    constructor() { sockets.push(this); }
+    send(payload) { this.sent.push(JSON.parse(payload)); }
+    close() { this.onclose?.(); }
+    receive(payload) { this.onmessage({ data: JSON.stringify(payload) }); }
+  }
+  const originalSocket = globalThis.WebSocket;
+  globalThis.WebSocket = FakeSocket;
+  t.after(() => { globalThis.WebSocket = originalSocket; });
+  const events = [];
+  window.addEventListener("zotgram:changed", (event) => events.push(event.detail));
+  globalThis.fetch = async () => json({ ticket: "test" });
+  const stop = startRealtime();
+  t.after(stop);
+  await waitFor(() => sockets.length > 0);
+  const socket = sockets[0];
+  socket.onopen();
+  socket.receive({ type: "auth.ready" });
+  assert.equal(events.length, 2);
+  for (let index = 0; index < 4; index++) {
+    clock += 25000;
+    heartbeat();
+    socket.receive({ type: "pong" });
+  }
+  assert.equal(events.length, 2);
+  clock += 25000;
+  socket.receive({ type: "pong" });
+  assert.equal(events.length, 4);
+  assert.deepEqual(events[2], { topic: "chats", event: { sync: false } });
+  clock += 200000;
+  socket.receive({ type: "pong" });
+  assert.deepEqual(events.at(-2), { topic: "chats", event: { sync: true } });
+  const count = events.length;
+  socket.receive({ type: "message.created", chat_id: "chat-a", message: message(2) });
+  assert.equal(events.length, count + 1);
+  assert.equal(events.at(-1).topic, "messages");
+  // A socket that authenticates again must repair membership changes as well.
+  socket.receive({ type: "auth.ready" });
+  assert.deepEqual(events.at(-2), { topic: "chats", event: { sync: true } });
+  const finalCount = events.length;
+  stop();
+  socket.receive({ type: "message.created", chat_id: "chat-a", message: message(3) });
+  assert.equal(events.length, finalCount);
 });
