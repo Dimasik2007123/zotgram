@@ -1,7 +1,8 @@
-import { memo } from "react";
+import { memo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { retryMessage } from "../api/serverApi";
 import { usePrivateFile } from "../api/hooks";
+import { downloadPrivateFile } from "../api/privateFiles";
 import getUserColor from "../utils/getUserColor";
 import attach from "../assets/images/file.svg";
 import readed from "../assets/images/readed.svg";
@@ -11,17 +12,38 @@ const dateFormat = new Intl.DateTimeFormat("ru-RU", {
 });
 
 const Attachment = memo(function Attachment({ file, onImageLoad }) {
-  const remote = usePrivateFile(file?.url || "");
+  const isImage = file?.mime?.startsWith("image/");
+  const remote = usePrivateFile(isImage && !file.localUrl ? file.url : "");
+  const downloading = useRef(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   if (!file) return null;
   const url = file.localUrl || remote;
+  const handleDownload = async (event) => {
+    if (url) return;
+    event.preventDefault();
+    if (downloading.current) return;
+    downloading.current = true;
+    setLoading(true);
+    setError("");
+    try {
+      await downloadPrivateFile(file.url, file.name);
+    } catch {
+      setError("Не удалось скачать файл. Нажмите на название, чтобы повторить.");
+    } finally {
+      downloading.current = false;
+      setLoading(false);
+    }
+  };
   return <>
-    {file.mime?.startsWith("image/") && url && <img src={url} alt={file.name} className="chat__message-image"
+    {isImage && url && <img src={url} alt={file.name} className="chat__message-image"
       onLoad={onImageLoad} onError={onImageLoad} />}
     <div className="chat__message-file">
       <img src={attach} alt="" />
-      {url ? <a href={url} download={file.name}>{file.name}</a>
-        : <span className="status-message status-message--inline" role="status">Загрузка файла</span>}
+      <a href={url || file.url} download={file.name} onClick={handleDownload} aria-busy={loading || undefined}>{file.name}</a>
+      {loading && <span className="status-message status-message--inline" role="status">Скачивание…</span>}
     </div>
+    {error && <div className="chat__delivery-error" role="alert">{error}</div>}
   </>;
 });
 

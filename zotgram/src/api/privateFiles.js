@@ -27,15 +27,18 @@ export const getPrivateFile = (url) => files.get(url)?.value || "";
 
 function download(url, entry) {
   entry.failed = false;
-  api(url, { blob: true, signal: entry.controller.signal }).then((blob) => {
-    if (files.get(url) !== entry) return;
+  entry.promise = api(url, { blob: true, signal: entry.controller.signal }).then((blob) => {
+    if (files.get(url) !== entry) return "";
     entry.value = URL.createObjectURL(blob);
     entry.size = blob.size;
     entry.listeners.forEach((notify) => notify());
     prune();
-  }).catch(() => {
+    return entry.value;
+  }).catch((error) => {
     if (files.get(url) === entry) entry.failed = true;
+    throw error;
   });
+  entry.promise.catch(() => {});
 }
 
 export function subscribePrivateFile(url, listener) {
@@ -60,6 +63,24 @@ export function subscribePrivateFile(url, listener) {
     entry.timer = setTimeout(() => remove(url, entry), idleLifetime);
     prune();
   };
+}
+
+export async function downloadPrivateFile(url, name) {
+  const unsubscribe = subscribePrivateFile(url, () => {});
+  try {
+    const entry = files.get(url);
+    if (!entry) return;
+    const value = entry.value || await entry.promise;
+    if (!value || files.get(url) !== entry) return;
+    const link = document.createElement("a");
+    link.href = value;
+    link.download = name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+  } finally {
+    unsubscribe();
+  }
 }
 
 export function clearPrivateFiles() {
