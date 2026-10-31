@@ -5,8 +5,8 @@ let lastPlayedAt = 0;
 export function playNotificationSound() {
   const now = Date.now();
 
-  // Не чаще одного раза в 1.5 секунды
-  if (now - lastPlayedAt < 1500) return;
+  // Не чаще одного раза в 1 секунду
+  if (now - lastPlayedAt < 1000) return;
   lastPlayedAt = now;
 
   const audio = new Audio(notificationUrl);
