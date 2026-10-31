@@ -1,7 +1,7 @@
 import statusText from "../utils/statusText";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { api } from "../api/client";
 import Comments from "./Comments";
 import like from "../assets/images/like.svg";
@@ -163,17 +163,6 @@ function Post({ post, showActivity = true }) {
     }
   };
 
-  const handleAddComment = () => {
-    dispatch(updateCachedPost(post.id, (cached) => ({ commentsCount: (cached.commentsCount || 0) + 1 })));
-    setSavedPost((previous) => {
-      const latest = previous?.source === post ? previous.value : post;
-      return {
-        source: post,
-        value: { ...latest, commentsCount: (latest.commentsCount || 0) + 1 },
-      };
-    });
-  };
-
   const getUserData = (userId) => {
     if (String(userId) === String(currentUser?.id)) return currentUser;
     return post.author;
@@ -318,10 +307,10 @@ function Post({ post, showActivity = true }) {
         </div>
       )}
       {isCommentsOpen && (
-        <Comments postId={post.id} onAdded={handleAddComment} />
+        <Comments postId={post.id} />
       )}
     </div>
   );
 }
 
-export default Post;
+export default memo(Post);

@@ -44,11 +44,14 @@ class Comment(models.Model):
     post = models.ForeignKey(
         Post, verbose_name="Публикация", on_delete=models.CASCADE, related_name='comments')
     text = models.TextField("Текст", max_length=3000)
+    attempt_id = models.UUIDField("ID попытки отправки", null=True, blank=True, editable=False)
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
 
     class Meta:
         verbose_name = "комментарий"
         verbose_name_plural = "Комментарии"
+        constraints = [models.UniqueConstraint(
+            fields=['post', 'author', 'attempt_id'], name='unique_comment_attempt')]
 
     def __str__(self):
         return f"{self.author}: {Truncator(' '.join(self.text.split())).chars(70)}"

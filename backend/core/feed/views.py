@@ -1,4 +1,5 @@
-from django.db.models import Case, IntegerField, Value, When
+from django.db import transaction
+from django.db.models import Case, Count, IntegerField, Value, When
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.response import Response
@@ -59,15 +60,34 @@ class CommentView(generics.ListCreateAPIView):
     pagination_class = CommentPages
 
     def get_queryset(self):
-        get_object_or_404(Post, pk=self.kwargs['pk'])
+        self.post = get_object_or_404(Post.objects.annotate(
+            _comments_count=Count('comments')), pk=self.kwargs['pk'])
         return Comment.objects.filter(
             post_id=self.kwargs['pk']).select_related('author', 'author__department').prefetch_related(
             'author__outgoing_follows', 'author__incoming_follows').order_by('-created_at', '-id')
 
-    def perform_create(self, serializer):
-        serializer.save(
-            post=get_object_or_404(Post, pk=self.kwargs["pk"]),
-            author=self.request.user)
+    def get_paginated_response(self, data):
+        response = super().get_paginated_response(data)
+        response.data['commentsCount'] = self.post._comments_count
+        return response
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        attempt = serializer.validated_data.get('attempt_id')
+        with transaction.atomic():
+            post = get_object_or_404(Post.objects.select_for_update(), pk=self.kwargs['pk'])
+            if attempt is not None:
+                comment, created = Comment.objects.get_or_create(
+                    post=post, author=request.user, attempt_id=attempt,
+                    defaults={'text': serializer.validated_data['text']})
+            else:
+                comment = serializer.save(post=post, author=request.user)
+                created = True
+            count = post.comments.count()
+        data = dict(self.get_serializer(comment).data)
+        data['commentsCount'] = count
+        return Response(data, status=201 if created else 200)
 
 class PostDetailView(generics.RetrieveAPIView):
     serializer_class = PostSerializer

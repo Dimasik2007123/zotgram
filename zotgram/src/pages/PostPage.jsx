@@ -1,25 +1,11 @@
 import { useParams } from "react-router-dom";
-import { api } from "../api/client";
-import { useQuery } from "../api/hooks";
+import { usePost } from "../api/hooks";
 import Post from "../components/Post";
 
 function PostPage() {
   const { postId } = useParams();
 
-  const { data, loading, error, reload } = useQuery(
-    async () => {
-      try {
-        return await api(`/api/core/posts/${postId}/`);
-      } catch (error) {
-        if (error.status === 404) {
-          throw new Error("Пост не найден", { cause: error });
-        }
-        throw error;
-      }
-    },
-    `post:${postId}`,
-    "posts",
-  );
+  const { data, loading, error, reload } = usePost(postId);
 
   if (loading) {
     return (

@@ -80,7 +80,7 @@ function ChatsList() {
       )}
       <div className="chats-list__items">
         {userChats.map((chat) => (
-          <ChatsListItem key={chat.id} chat={chat} />
+          <ChatsListItem key={chat.id} chat={chat} active={chatId === chat.id} />
         ))}
       </div>
       <LoadMore state={chats} />

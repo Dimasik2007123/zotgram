@@ -3,7 +3,8 @@ import { api, allPages } from "./client";
 import { createPeopleBatcher } from "./peopleBatcher";
 import { getCacheSession } from "./cacheSession";
 import { rememberOutboxFile, getOutboxFile, releaseOutboxFile } from "./outboxFiles";
-import { sendingMessage, failedMessage, confirmedMessage } from "../store/outboxReducer";
+import { sendingMessage, failedMessage, confirmedMessage,
+  sendingComment, failedComment, confirmedComment } from "../store/outboxReducer";
 import { receivedMessage, upsertChat, refreshUnread } from "../store/chatsReducer";
 import { infinitePages, pagePath, pageRows } from "./pagination";
 
@@ -37,6 +38,10 @@ export const serverApi = createApi({
   tagTypes: ["Person", "Chat", "Posts", "Directory", "ChatSearch", "Comments"],
   endpoints: (build) => ({
     getPosts: build.infiniteQuery(infinitePages((query) => pagePath("/api/core/posts/", query), "Posts")),
+    getPost: build.query({
+      query: (postId) => ({ path: `/api/core/posts/${postId}/` }),
+      providesTags: ["Posts"],
+    }),
     getUsers: build.infiniteQuery({
       ...infinitePages((query) => pagePath("/api/core/users/", new URLSearchParams({ q: query }).toString()), "Directory"),
       async onQueryStarted(_args, { dispatch, getState, queryFulfilled }) {
@@ -56,26 +61,55 @@ export const serverApi = createApi({
     }),
     searchChats: build.infiniteQuery(infinitePages((query) =>
       pagePath("/api/chat/chats/", new URLSearchParams({ q: query }).toString()), "ChatSearch")),
-    getComments: build.infiniteQuery(infinitePages((postId) =>
-      pagePath(`/api/core/posts/${postId}/comments/`), "Comments")),
+    getComments: build.infiniteQuery({
+      ...infinitePages((postId) => pagePath(`/api/core/posts/${postId}/comments/`), "Comments"),
+      async onQueryStarted(postId, { dispatch, getState, queryFulfilled }) {
+        const session = getCacheSession();
+        try {
+          const { data } = await queryFulfilled;
+          if (session !== getCacheSession()) return;
+          pageRows(data).forEach((comment) => {
+            if (comment.userId !== getState().user.user?.id || !comment.attempt_id) return;
+            if (getState().outbox.comments.some((item) => item.postId === postId && item.attempt_id === comment.attempt_id)) {
+              dispatch(confirmedComment(comment.attempt_id));
+            }
+          });
+          const count = data.pages.at(-1)?.commentsCount;
+          if (Number.isFinite(count)) dispatch(updateCachedPost(postId, (post) => ({
+            commentsCount: Math.max(post.commentsCount || 0, count),
+          }), session));
+        } catch { /* Keep loaded comments and pending attempts while offline. */ }
+      },
+    }),
     addComment: build.mutation({
-      query: ({ postId, text }) => ({
+      query: ({ postId, text, attemptId }) => ({
         path: `/api/core/posts/${postId}/comments/`,
         method: "POST",
-        body: { text },
+        body: { text, attempt_id: attemptId },
       }),
-      async onQueryStarted({ postId }, { dispatch, queryFulfilled }) {
+      async onQueryStarted({ postId, text, attemptId }, { dispatch, getState, requestId, queryFulfilled }) {
         const session = getCacheSession();
+        const attempt = attemptId || requestId;
+        const author = getState().user.user;
+        dispatch(sendingComment({ id: `pending:${attempt}`, attempt_id: attempt, postId,
+          userId: author.id, author, text, date: new Date().toISOString() }));
         try {
           const { data: comment } = await queryFulfilled;
           // A response from an earlier GET must not overwrite the new comment.
           await dispatch(serverApi.util.getRunningQueryThunk("getComments", postId));
           if (session !== getCacheSession()) return;
           dispatch(serverApi.util.updateQueryData("getComments", postId, (comments) => {
-            if (!pageRows(comments).some((item) => item.id === comment.id)) comments.pages[0]?.results.unshift(comment);
+            // The view sorts by date. Appending avoids cloning every previous row in a patch.
+            if (!pageRows(comments).some((item) => item.id === comment.id)) comments.pages[0]?.results.push(comment);
           }));
-        } catch {
-          // The mutation exposes the error to the form; cached comments stay intact.
+          dispatch(confirmedComment(attempt));
+          if (Number.isFinite(comment.commentsCount)) dispatch(updateCachedPost(postId, (post) => ({
+            commentsCount: Math.max(post.commentsCount || 0, comment.commentsCount),
+          }), session));
+        } catch (error) {
+          if (session !== getCacheSession()) return;
+          dispatch(failedComment({ attemptId: attempt,
+            message: error.error?.message || "Не удалось подтвердить отправку" }));
         }
       },
     }),
@@ -219,7 +253,10 @@ function patchHistory(args, message, dispatch, getState) {
     return;
   }
   dispatch(serverApi.util.updateQueryData("getMessages", args, (history) => {
-    history.rows = mergeMessages(history.rows, [message]);
+    // Replacing the entire array makes Immer clone unchanged rows when applying patches.
+    const index = history.rows.findIndex((row) => row.sequence > message.sequence);
+    if (index < 0) history.rows.push(message);
+    else history.rows.splice(index, 0, message);
     if (!args.query) {
       const sequences = new Set(history.rows.map((item) => item.sequence));
       history.syncedSequence = head;
@@ -322,4 +359,19 @@ export const updateCachedPost = (postId, update, session = getCacheSession()) =>
       }
     }));
   }
+  dispatch(serverApi.util.updateQueryData("getPost", postId, (post) => {
+    Object.assign(post, typeof update === "function" ? update(post) : update);
+  }));
+};
+
+export const submitComment = ({ postId, text, attemptId = crypto.randomUUID() }) => (dispatch) => {
+  const request = dispatch(serverApi.endpoints.addComment.initiate({ postId, text, attemptId }));
+  void request.then(() => request.reset());
+  return request;
+};
+
+export const retryComment = (attemptId) => (dispatch, getState) => {
+  const comment = getState().outbox.comments.find((item) => item.attempt_id === attemptId);
+  if (!comment || comment.delivery !== "failed") return;
+  return dispatch(submitComment({ postId: comment.postId, text: comment.text, attemptId }));
 };

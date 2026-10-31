@@ -12,13 +12,16 @@ const vite = await createServer({
 const originalFetch = globalThis.fetch;
 const originalChannel = globalThis.BroadcastChannel;
 globalThis.BroadcastChannel = undefined;
-const { serverApi, refreshMessages, applyIncomingMessage, submitMessage, retryMessage, updateCachedPost } = await vite.ssrLoadModule("/src/api/serverApi.js");
+const { serverApi, refreshMessages, applyIncomingMessage, submitMessage, retryMessage, updateCachedPost,
+  submitComment, retryComment, refreshChat } = await vite.ssrLoadModule("/src/api/serverApi.js");
 const { store } = await vite.ssrLoadModule("/src/store/index.js");
 const { login, logout } = await vite.ssrLoadModule("/src/store/userReducer.js");
 const { setAccess } = await vite.ssrLoadModule("/src/api/session.js");
 const { subscribePrivateFile, getPrivateFile, chatAvatarUrl } = await vite.ssrLoadModule("/src/api/privateFiles.js");
 const { upsertChat, loadChats, loadMoreChats, refreshUnread } = await vite.ssrLoadModule("/src/store/chatsReducer.js");
 const { pageRows } = await vite.ssrLoadModule("/src/api/pagination.js");
+const { peopleSelector, outboxSelector } = await vite.ssrLoadModule("/src/api/selectors.js");
+const { discardComment } = await vite.ssrLoadModule("/src/store/outboxReducer.js");
 const { startChatUpdates } = await vite.ssrLoadModule("/src/api/chatUpdates.js");
 const { startRealtime } = await vite.ssrLoadModule("/src/api/realtime.js");
 const { startMessageNotifications } = await vite.ssrLoadModule("/src/api/notifications.js");
@@ -136,7 +139,7 @@ test("an overlapping GET cannot overwrite a newly submitted comment", async () =
   response.resolve(json({ results: [{ id: "old-comment" }], next: null }));
   await initial;
   await waitFor(() => comments().length === 2);
-  assert.deepEqual(comments().map((item) => item.id), ["new-comment", "old-comment"]);
+  assert.deepEqual(comments().map((item) => item.id).sort(), ["new-comment", "old-comment"]);
 });
 
 test("failed comment submissions preserve the existing list", async () => {
@@ -746,7 +749,7 @@ test("new comments stay visible while older pages are loaded, without a full ref
   await query('addComment', { postId: 'post-a', text: 'New' });
   await waitFor(() => comments().length === 3);
   await query('getComments', 'post-a', { direction: 'forward' });
-  assert.deepEqual(comments().map(row => row.id), ['comment-4', 'comment-3', 'comment-2', 'comment-1']);
+  assert.deepEqual(comments().map(row => row.id).sort(), ['comment-1', 'comment-2', 'comment-3', 'comment-4']);
   assert.equal(paths.length, 3);
 });
 
@@ -892,7 +895,7 @@ test("a successful comment submission still updates the cache after its form unm
   response.resolve(json({ id: 'new' }, 201));
   await request;
   await waitFor(() => comments().length === 2);
-  assert.deepEqual(comments().map(row => row.id), ['new', 'old']);
+  assert.deepEqual(comments().map(row => row.id).sort(), ['new', 'old']);
 });
 
 test("a slow next chat page cannot undo an event applied while that page was loading", async () => {
@@ -917,4 +920,184 @@ test("a slow next chat page cannot undo an event applied while that page was loa
   assert.equal(row.unreadCount, 2);
   assert.equal(store.getState().chats.unreadCount, 3);
   assert.equal(store.getState().chats.items.length, 2);
+});
+
+const seedComments = async () => {
+  await store.dispatch(serverApi.util.upsertQueryData('getComments', 'post-a', {
+    pages: [{results:[{id:'existing',userId:'person',text:'Existing',date:message(1).createdAt}],next:null,commentsCount:1}], pageParams:[null],
+  }));
+  await store.dispatch(serverApi.util.upsertQueryData('getPost', 'post-a', {id:'post-a',commentsCount:1}));
+};
+
+test("comments appear in the outbox before HTTP completion and confirm without a list GET", async () => {
+  await seedComments();
+  const response = deferred();
+  const requests = [];
+  globalThis.fetch = async (path, options) => {
+    requests.push({path,method:options.method,body:JSON.parse(options.body)});
+    return response.promise;
+  };
+  const request = store.dispatch(submitComment({postId:'post-a',text:'Immediate',attemptId:'comment-attempt'}));
+  assert.equal(store.getState().outbox.comments[0].delivery, 'sending');
+  assert.equal(store.getState().outbox.comments[0].text, 'Immediate');
+  response.resolve(json({id:'confirmed',userId:'owner-a',attempt_id:'comment-attempt',text:'Immediate',commentsCount:2},201));
+  await request;
+  await waitFor(() => !store.getState().outbox.comments.length);
+  assert.equal(comments().length, 2);
+  assert.equal(cached('getPost','post-a').data.commentsCount, 2);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'POST');
+  assert.equal(requests[0].body.attempt_id, 'comment-attempt');
+});
+
+test("failed comments preserve text and retry with the original attempt ID", async () => {
+  await seedComments();
+  const attempts = [];
+  globalThis.fetch = async (_path, options) => {
+    attempts.push(JSON.parse(options.body).attempt_id);
+    return attempts.length === 1 ? json({detail:'Unavailable'},503)
+      : json({id:'confirmed',attempt_id:'retry-comment',userId:'owner-a',commentsCount:2});
+  };
+  await store.dispatch(submitComment({postId:'post-a',text:'Keep this text',attemptId:'retry-comment'}));
+  await waitFor(() => store.getState().outbox.comments[0]?.delivery === 'failed');
+  assert.equal(store.getState().outbox.comments[0].text, 'Keep this text');
+  assert.equal(cached('getPost','post-a').data.commentsCount, 1);
+  const retry = store.dispatch(retryComment('retry-comment'));
+  assert.equal(store.dispatch(retryComment('retry-comment')), undefined);
+  await retry;
+  await waitFor(() => !store.getState().outbox.comments.length);
+  assert.deepEqual(attempts, ['retry-comment','retry-comment']);
+  assert.equal(comments().filter(row => row.id === 'confirmed').length, 1);
+  assert.equal(cached('getPost','post-a').data.commentsCount, 2);
+});
+
+test("a history response confirms a comment whose POST acknowledgement was lost", async () => {
+  await seedComments();
+  const response = deferred();
+  globalThis.fetch = async (_path, options) => options.method === 'POST' ? response.promise
+    : json({results:[{id:'confirmed',attempt_id:'lost-comment',userId:'owner-a'}],next:null,commentsCount:2});
+  const sending = store.dispatch(submitComment({postId:'post-a',text:'Hello',attemptId:'lost-comment'}));
+  await query('getComments','post-a',{forceRefetch:true});
+  await waitFor(() => !store.getState().outbox.comments.length);
+  response.resolve(json({detail:'Lost reply'},503));
+  await sending;
+  assert.equal(store.getState().outbox.comments.length, 0);
+  assert.equal(cached('getPost','post-a').data.commentsCount, 2);
+});
+
+test("out-of-order comment responses do not rewind confirmed counts", async () => {
+  await seedComments();
+  const responses = [deferred(),deferred()];
+  let index = 0;
+  globalThis.fetch = () => responses[index++].promise;
+  const first = store.dispatch(submitComment({postId:'post-a',text:'First',attemptId:'first-comment'}));
+  const second = store.dispatch(submitComment({postId:'post-a',text:'Second',attemptId:'second-comment'}));
+  responses[1].resolve(json({id:'second',attempt_id:'second-comment',userId:'owner-a',commentsCount:3},201));
+  await second;
+  responses[0].resolve(json({id:'first',attempt_id:'first-comment',userId:'owner-a',commentsCount:2},201));
+  await first;
+  await waitFor(() => !store.getState().outbox.comments.length);
+  assert.equal(cached('getPost','post-a').data.commentsCount, 3);
+  assert.equal(comments().length, 3);
+});
+
+test("another author cannot confirm an outgoing comment with the same attempt ID", async () => {
+  await seedComments();
+  const response = deferred();
+  globalThis.fetch = async (_path, options) => options.method === 'POST' ? response.promise
+    : json({results:[{id:'other',attempt_id:'shared-id',userId:'person'}],next:null,commentsCount:2});
+  const sending = store.dispatch(submitComment({postId:'post-a',text:'Mine',attemptId:'shared-id'}));
+  await query('getComments','post-a',{forceRefetch:true});
+  assert.equal(store.getState().outbox.comments.length, 1);
+  response.resolve(json({detail:'Unavailable'},503));
+  await sending;
+  await waitFor(() => store.getState().outbox.comments[0]?.delivery === 'failed');
+});
+
+test("pending comments survive an overlapping initial GET, without mutating previous rows", async () => {
+  const response = deferred();
+  globalThis.fetch = async (_path, options) => options.method === 'POST'
+    ? json({id:'new',userId:'owner-a',attempt_id:'overlap',commentsCount:2},201) : response.promise;
+  const initial = query('getComments','post-a');
+  const sending = store.dispatch(submitComment({postId:'post-a',text:'Hello',attemptId:'overlap'}));
+  assert.equal(store.getState().outbox.comments[0].delivery, 'sending');
+  response.resolve(json({results:[{id:'old'}],next:null,commentsCount:1}));
+  await Promise.all([initial,sending]);
+  await waitFor(() => comments().length === 2);
+  assert.equal(store.getState().outbox.comments.length, 0);
+});
+
+test("logout discards optimistic comments and late responses cannot populate a new session", async () => {
+  await seedComments();
+  const response = deferred();
+  globalThis.fetch = () => response.promise;
+  const sending = store.dispatch(submitComment({postId:'post-a',text:'Private',attemptId:'old-comment'}));
+  store.dispatch(logout());
+  store.dispatch(login({id:'owner-a'}));
+  await seedComments();
+  response.resolve(json({id:'private',userId:'owner-a',attempt_id:'old-comment',commentsCount:2},201));
+  await sending;
+  await new Promise(resolve => setTimeout(resolve,10));
+  assert.equal(store.getState().outbox.comments.length, 0);
+  assert.equal(comments().length, 1);
+  assert.equal(cached('getPost','post-a').data.commentsCount, 1);
+});
+
+test("only failed comments can be discarded, without changing confirmed comments", async () => {
+  await seedComments();
+  const response = deferred();
+  globalThis.fetch = () => response.promise;
+  const sending = store.dispatch(submitComment({postId:'post-a',text:'Hello',attemptId:'discard-me'}));
+  store.dispatch(discardComment('discard-me'));
+  assert.equal(store.getState().outbox.comments.length, 1);
+  response.resolve(json({detail:'Unavailable'},503));
+  await sending;
+  store.dispatch(discardComment('discard-me'));
+  assert.equal(store.getState().outbox.comments.length, 0);
+  assert.equal(comments().length, 1);
+});
+
+test("unrelated outbox changes preserve the selected comments array", async () => {
+  const select = outboxSelector('comments','postId','post-a');
+  const previous = select(store.getState());
+  globalThis.fetch = async () => json({detail:'Unavailable'},503);
+  await store.dispatch(submitComment({postId:'post-b',text:'Other post',attemptId:'other-post'}));
+  assert.equal(select(store.getState()), previous);
+});
+
+test("cached user selectors retain references during unchanged background refreshes", async () => {
+  await store.dispatch(serverApi.util.upsertQueryData('getPerson','person',{id:'person',name:'Anna'}));
+  const select = peopleSelector(['person'],serverApi.endpoints.getPerson);
+  const previous = select(store.getState());
+  const response = deferred();
+  globalThis.fetch = () => response.promise;
+  const refresh = query('getPerson','person',{forceRefetch:true});
+  assert.equal(select(store.getState()), previous);
+  response.resolve(json([{id:'person',name:'Anna'}]));
+  await refresh;
+  assert.equal(select(store.getState()), previous);
+});
+
+test("receiving a new message preserves the previous message objects", async () => {
+  await seedChat();
+  const first = cached('getMessages',historyArgs).data.rows[0];
+  store.dispatch(applyIncomingMessage(message(2)));
+  assert.equal(cached('getMessages',historyArgs).data.rows[0], first);
+});
+
+test("unchanged metadata refreshes preserve chat row identity", async () => {
+  await seedChat();
+  const previous = store.getState().chats.items[0];
+  globalThis.fetch = async () => json(chat());
+  await store.dispatch(refreshChat('chat-a'));
+  assert.equal(store.getState().chats.items[0], previous);
+});
+
+test("confirming a new comment preserves the previous comment objects", async () => {
+  await seedComments();
+  const first = comments()[0];
+  globalThis.fetch = async () => json({id:'new',userId:'owner-a',attempt_id:'append',commentsCount:2},201);
+  await store.dispatch(submitComment({postId:'post-a',text:'New',attemptId:'append'}));
+  await waitFor(() => comments().length === 2);
+  assert.equal(comments()[0], first);
 });

@@ -1,6 +1,6 @@
 import { Link, NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { useChats, useQuery } from "../api/hooks";
+import { useChatNavigation, useQuery } from "../api/hooks";
 import { api } from "../api/client";
 import getUserColor from "../utils/getUserColor";
 
@@ -10,7 +10,7 @@ function LeftBar() {
     () => api("/api/core/departments/"),
     "departments",
   );
-  const chats = useChats();
+  const chats = useChatNavigation();
 
   const generalChat = chats.systemChats?.find((chat) => chat.systemKey === "general");
 

@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "node tests/cache.test.mjs",
+    "test:browser": "node tests/browser/comments.mjs",
+    "benchmark": "node benchmarks/performance.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

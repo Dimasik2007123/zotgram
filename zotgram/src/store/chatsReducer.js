@@ -1,5 +1,6 @@
 import statusText from "../utils/statusText";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { copyWithStructuralSharing } from "@reduxjs/toolkit/query";
 import { api } from "../api/client";
 import { nextApiPath } from "../api/pagination";
 import { getCacheSession } from "../api/cacheSession";
@@ -92,7 +93,7 @@ function mergeSnapshot(state, old, row) {
     merged.unreadCount = counter.unreadCount;
     merged.countedSequence = counter.lastSequence;
   }
-  return merged;
+  return old ? copyWithStructuralSharing(old, merged) : merged;
 }
 
 function sortChats(items) {

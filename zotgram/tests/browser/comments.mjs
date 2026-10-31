@@ -1,0 +1,102 @@
+import { preview } from 'vite';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { openBrowser } from './driver.mjs';
+import { apiFixture } from './fixture.mjs';
+
+const root = fileURLToPath(new URL('../../', import.meta.url));
+const server = await preview({root,configFile:false,preview:{host:'127.0.0.1',port:0,strictPort:false,open:false}});
+const browser = await openBrowser(resolve(root, `../.tmp/comment-browser-${Date.now()}`))
+  .catch(async (error) => { await new Promise(done => server.httpServer.close(done)); throw error; });
+const {send,evaluate,waitFor} = browser;
+const toggle = "[...document.querySelectorAll('.post__buttons-item')].find(button => button.textContent.trim() === 'Комментарии').click()";
+const count = () => evaluate("document.querySelector('.post__stats-comments').textContent");
+const post = async (text) => {
+  await evaluate("document.querySelector('.comments__input').focus()");
+  await send('Input.insertText',{text});
+  await evaluate("document.querySelector('.comments__form').requestSubmit()");
+};
+const rowCount = (text) => evaluate(`[...document.querySelectorAll('.comments__text')].filter(row => row.textContent === ${JSON.stringify(text)}).length`);
+
+try {
+  await send('Page.addScriptToEvaluateOnNewDocument',{source:`(${apiFixture.toString()})();`});
+  await send('Page.navigate',{url:`http://127.0.0.1:${server.httpServer.address().port}/`});
+  await waitFor("document.querySelector('.post')");
+  await evaluate(toggle);
+  await waitFor("document.querySelectorAll('.comments__text').length === 20");
+  await evaluate("__commentMode = 'manual'");
+  await post('Мгновенный комментарий');
+  await waitFor("__pendingComments.length === 1");
+  assert.equal(await rowCount('Мгновенный комментарий'),1);
+  assert.equal(await evaluate("document.querySelector('.comments__delivery').textContent"),'Отправляется');
+  assert.equal(await evaluate("document.querySelector('.comments__input').value"),'');
+  await evaluate('document.querySelector(\'a[href="/people"]\').click()');
+  await waitFor("document.querySelector('.people')");
+  await evaluate('document.querySelector(\'a[href="/"]\').click()');
+  await waitFor("document.querySelector('.post')");
+  await evaluate(toggle);
+  await waitFor("document.querySelector('.comments__delivery')");
+  assert.equal(await rowCount('Мгновенный комментарий'),1);
+  await evaluate("__pendingComments[0].finish('error')");
+  await waitFor("document.querySelector('.comments .chat__delivery-error')");
+  assert.equal(await count(),'26 комментариев');
+  await evaluate("document.querySelector('.comments .chat__delivery-error button').click()");
+  await waitFor("__pendingComments.length === 2");
+  assert.ok(await evaluate("__pendingComments[0].attemptId === __pendingComments[1].attemptId"));
+  await evaluate("__pendingComments[1].finish('success')");
+  await waitFor("!document.querySelector('.comments__delivery')");
+  assert.equal(await rowCount('Мгновенный комментарий'),1);
+  await waitFor("document.querySelector('.post__stats-comments').textContent === '27 комментариев'");
+  assert.equal(await count(),'27 комментариев');
+  await post('Ответ потерян');
+  await waitFor("__pendingComments.length === 3");
+  await evaluate("__pendingComments[2].finish('accepted-error')");
+  await waitFor("document.querySelector('.comments .chat__delivery-error')");
+  await evaluate("document.querySelector('.comments .chat__delivery-error button').click()");
+  await waitFor("__pendingComments.length === 4");
+  await evaluate("__pendingComments[3].finish('success')");
+  await waitFor("!document.querySelector('.comments__delivery')");
+  assert.equal(await rowCount('Ответ потерян'),1);
+  await waitFor("document.querySelector('.post__stats-comments').textContent === '28 комментариев'");
+  assert.equal(await count(),'28 комментариев');
+  await post('Можно убрать');
+  await waitFor("__pendingComments.length === 5");
+  await evaluate("__pendingComments[4].finish('error')");
+  await waitFor("document.querySelector('.comments .chat__delivery-error')");
+  await evaluate("[...document.querySelectorAll('.comments .chat__delivery-error button')].find(button => button.textContent === 'Убрать').click()");
+  assert.equal(await rowCount('Можно убрать'),0);
+  await post('Закрытая форма');
+  await waitFor("__pendingComments.length === 6");
+  await evaluate(toggle);
+  await waitFor("!document.querySelector('.comments')");
+  await evaluate("__pendingComments[5].finish('success')");
+  await waitFor("document.querySelector('.post__stats-comments').textContent === '29 комментариев'");
+  await evaluate(toggle);
+  await waitFor("document.querySelector('.comments')");
+  assert.equal(await rowCount('Закрытая форма'),1);
+  await evaluate("history.pushState({}, '', '/posts/post-a'); window.dispatchEvent(new PopStateEvent('popstate'))");
+  await waitFor("location.pathname === '/posts/post-a' && document.querySelector('.post') && !document.querySelector('.comments')");
+  assert.equal(await count(),'29 комментариев');
+  await evaluate(toggle);
+  await waitFor("document.querySelector('.comments')");
+  await post('Отдельный пост');
+  await waitFor("__pendingComments.length === 7");
+  await evaluate("__pendingComments[6].finish('success')");
+  await waitFor("document.querySelector('.post__stats-comments').textContent === '30 комментариев'");
+  assert.equal(await rowCount('Отдельный пост'),1);
+  assert.equal(await evaluate("__requests.filter(row => row.path.endsWith('/comments/') && row.method === 'GET').length"),1);
+  await post('Комментарий перед выходом');
+  await waitFor("__pendingComments.length === 8");
+  await evaluate("(() => { const channel = new BroadcastChannel('zotgram-auth'); channel.postMessage('logout'); channel.close(); })()");
+  await waitFor("location.pathname === '/login'");
+  await evaluate("__pendingComments[7].finish('success')");
+  assert.ok(!await evaluate("document.body.textContent.includes('Комментарий перед выходом')"));
+  assert.deepEqual(browser.errors,[]);
+  console.log(JSON.stringify({passed:true,optimistic:true,persistsAcrossRoutes:true,retryIsIdempotent:true,
+    lostAcknowledgement:true,discardFailed:true,closedFormUpdatesCache:true,postDetailCounts:true,
+    logoutDuringSend:true,listGetRequests:1,runtimeErrors:0}));
+} finally {
+  await browser.close();
+  await new Promise(done => server.httpServer.close(done));
+}

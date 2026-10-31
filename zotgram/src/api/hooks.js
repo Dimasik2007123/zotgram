@@ -3,10 +3,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { allPages } from "./client";
 import { useDispatch, useSelector } from "react-redux";
 import { loadChats, loadMoreChats } from "../store/chatsReducer";
-import { createSelector } from "@reduxjs/toolkit";
 import { serverApi, refreshMessages } from "./serverApi";
 import { getPrivateFile, subscribePrivateFile } from "./privateFiles";
 import { pageRows } from "./pagination";
+import { peopleSelector, outboxSelector, selectChatNavigation, selectCachedQuery } from "./selectors";
+
+export const useUnreadCount = () => useSelector((state) => state.chats.unreadCount);
+
+export function useChatNavigation() {
+  const dispatch = useDispatch();
+  const state = useSelector(selectChatNavigation);
+  const reload = useCallback(() => dispatch(loadChats({ force: true, sync: true })), [dispatch]);
+  return { ...state, reload };
+}
 
 export function useChats() {
   const dispatch = useDispatch();
@@ -65,7 +74,23 @@ export function useChatSearch(query) {
 }
 
 export function useComments(postId) {
-  return usePageResults(serverApi.useGetCommentsInfiniteQuery(postId, { refetchOnMountOrArgChange: 60 }), true);
+  const ownerId = useSelector((state) => state.user.user?.id);
+  const state = usePageResults(serverApi.useGetCommentsInfiniteQuery(postId, { skip: !ownerId, refetchOnMountOrArgChange: 60 }), true);
+  const selectPending = useMemo(() => outboxSelector("comments", "postId", postId), [postId]);
+  const pending = useSelector(selectPending);
+  const data = useMemo(() => {
+    const attempts = new Set(state.data.filter((item) => item.attempt_id).map((item) => `${item.userId}:${item.attempt_id}`));
+    return [...state.data, ...pending.filter((item) => !attempts.has(`${item.userId}:${item.attempt_id}`))]
+      .sort((a, b) => (a.date || "").localeCompare(b.date || "") || String(a.id).localeCompare(String(b.id)));
+  }, [state.data, pending]);
+  return { ...state, data };
+}
+
+export function usePost(postId) {
+  const ownerId = useSelector((state) => state.user.user?.id);
+  const state = serverApi.useGetPostQuery(postId, { skip: !ownerId, refetchOnMountOrArgChange: 60, selectFromResult: selectCachedQuery });
+  return { data: accessDenied(state.error) ? null : state.currentData, loading: state.isLoading,
+    error: state.error?.status === 404 ? "Пост не найден" : (state.error?.message || ""), reload: state.refetch };
 }
 
 export function useDebouncedValue(value, delay = 250) {
@@ -135,19 +160,7 @@ export function usePeople(ids) {
   const owner = useSelector((state) => state.user.user?.id);
   const key = [...new Set(ids.filter(Boolean).map(String))].sort().join(",");
   const list = useMemo(() => key ? key.split(",") : [], [key]);
-  const selectPeople = useMemo(() => createSelector(
-    list.length
-      ? list.map((id) => serverApi.endpoints.getPerson.select(id))
-      : [() => null],
-    (...results) => {
-      const queries = results.filter(Boolean);
-      return {
-        data: queries.flatMap((result) => result.data && !accessDenied(result.error) ? [result.data] : []),
-        loading: queries.some((result) => !result.data && !result.isError),
-        error: queries.find((result) => result.error)?.error?.message || "",
-      };
-    },
-  ), [list]);
+  const selectPeople = useMemo(() => peopleSelector(list, serverApi.endpoints.getPerson), [list]);
   const state = useSelector(selectPeople);
   useEffect(() => {
     if (!owner) return;
@@ -173,7 +186,8 @@ export function usePrivateFile(url) {
 const accessDenied = (error) => [401, 403, 404].includes(error?.status);
 
 export function useChat(chatId) {
-  const state = serverApi.useGetChatQuery(chatId, { refetchOnMountOrArgChange: 30 });
+  const ownerId = useSelector((state) => state.user.user?.id);
+  const state = serverApi.useGetChatQuery(chatId, { skip: !ownerId, refetchOnMountOrArgChange: 30, selectFromResult: selectCachedQuery });
   return {
     data: accessDenied(state.error) ? null : state.currentData,
     loading: state.isLoading,
@@ -184,10 +198,12 @@ export function useChat(chatId) {
 
 export function useMessages(chatId, query = "") {
   const dispatch = useDispatch();
+  const ownerId = useSelector((state) => state.user.user?.id);
   const args = useMemo(() => ({ chatId, query }), [chatId, query]);
-  const state = serverApi.useGetMessagesQuery(args, { refetchOnMountOrArgChange: true });
+  const state = serverApi.useGetMessagesQuery(args, { skip: !ownerId, refetchOnMountOrArgChange: true, selectFromResult: selectCachedQuery });
   const [loadOlder, olderState] = serverApi.useLoadOlderMessagesMutation();
-  const outbox = useSelector((state) => state.outbox.items);
+  const selectPending = useMemo(() => outboxSelector("items", "chatId", chatId), [chatId]);
+  const outbox = useSelector(selectPending);
   useEffect(() => {
     const handle = ({ detail: { topic, event } }) => {
       if (topic === "messages" && event?.type !== "message.created" &&

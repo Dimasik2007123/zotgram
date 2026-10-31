@@ -11,6 +11,7 @@ import CreatePostModal from "./components/CreatePostModal";
 import { changed } from "./api/client";
 import { startRealtime } from "./api/realtime";
 import { startChatUpdates } from "./api/chatUpdates";
+import { loadChats } from "./store/chatsReducer";
 
 function App() {
   const dispatch = useDispatch();
@@ -34,6 +35,7 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
     const stopUpdates = startChatUpdates(dispatch);
+    void dispatch(loadChats());
     const stopRealtime = startRealtime();
     return () => {
       stopUpdates();

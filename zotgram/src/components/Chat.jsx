@@ -1,56 +1,20 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { api, changed } from "../api/client";
 import { useMessages, usePeople, usePrivateFile, useChat } from "../api/hooks";
 import { chatAvatarUrl } from "../api/privateFiles";
-import { submitMessage, retryMessage } from "../api/serverApi";
 import getUserColor from "../utils/getUserColor.js";
 import GroupInfoModal from "./GroupInfoModal.jsx";
 import info from "../assets/images/info.svg";
-import attach from "../assets/images/file.svg";
-import send from "../assets/images/send.svg";
 import back from "../assets/images/back.svg";
-import readed from "../assets/images/readed.svg";
 
-const attachmentsEnabled = true;
+import ChatComposer from "./ChatComposer";
+import MessageRows from "./MessageRows";
 const groupsEnabled = true;
 
-function Attachment({ file, onImageLoad }) {
-  const remoteUrl = usePrivateFile(file?.url || "");
-  const url = file?.localUrl || remoteUrl;
-  if (!file) return null;
-  const isImage = file.mime?.startsWith("image/");
-  return (
-    <>
-      {isImage && url && (
-        <img
-          src={url}
-          alt={file.name}
-          className="chat__message-image"
-          onLoad={onImageLoad}
-          onError={onImageLoad}
-        />
-      )}
-      <div className="chat__message-file">
-        <img src={attach} alt="" />
-        {url ? (
-          <a href={url} download={file.name}>
-            {file.name}
-          </a>
-        ) : (
-          <span className="status-message status-message--inline" role="status">
-            Загрузка файла
-          </span>
-        )}
-      </div>
-    </>
-  );
-}
-
 function ChatContent() {
-  const dispatch = useDispatch();
   const { chatId } = useParams();
   const navigate = useNavigate();
   const currentUser = useSelector((state) => state.user.user);
@@ -65,20 +29,16 @@ function ChatContent() {
     ...chatMessages.map((message) => message.authorId),
   ]);
   const avatar = usePrivateFile(
-    attachmentsEnabled ? chatAvatarUrl(chat) : "",
+    chatAvatarUrl(chat),
   );
   const isGroupChat = chat && chat.type === "group";
+  const readThrough = (chat?.members || []).reduce((max, member) =>
+    String(member.userId) === String(currentUser?.id) ? max : Math.max(max, member.lastReadSequence || 0), 0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [newMessage, setNewMessage] = useState("");
-  const [file, setFile] = useState(null);
-  const [filePreview, setFilePreview] = useState(null);
-  const fileInputRef = useRef(null);
-  const messageInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const stickToBottomRef = useRef(true);
-  const sendingRef = useRef(false);
   const lastRead = useRef(0);
   const pendingRead = useRef(0);
   const latest = messagesState.latestSequence;
@@ -88,6 +48,7 @@ function ChatContent() {
     const mark = async () => {
       if (
         Boolean(query) ||
+        !currentUser ||
         !chatReady ||
         document.visibilityState !== "visible" ||
         !document.hasFocus() ||
@@ -128,40 +89,7 @@ function ChatContent() {
       window.removeEventListener("focus", mark);
       document.removeEventListener("visibilitychange", mark);
     };
-  }, [chatId, latest, currentUser.id, chatReady, query]);
-
-  const handleFileChange = (e) => {
-    if (!attachmentsEnabled) return;
-    const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setFilePreview(selectedFile.name);
-    }
-  };
-
-  const handleRemoveFile = () => {
-    setFile(null);
-    setFilePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (
-      sendingRef.current ||
-      (!newMessage.trim() && !(attachmentsEnabled && file))
-    )
-      return;
-    sendingRef.current = true;
-    void dispatch(submitMessage({ chatId, text: newMessage,
-      file: attachmentsEnabled ? file : null, attemptId: crypto.randomUUID() }));
-    setNewMessage("");
-    setFile(null);
-    setFilePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    messageInputRef.current?.focus();
-    queueMicrotask(() => { sendingRef.current = false; });
-  };
+  }, [chatId, latest, currentUser, chatReady, query]);
 
   const handleUpdateChat = async (updatedChat) => {
     await api(`/api/chat/chats/${chatId}/`, {
@@ -172,13 +100,14 @@ function ChatContent() {
   };
 
   const getCompanion = () => {
-    const companionId = chat.participants.find((id) => id !== currentUser.id);
+    const companionId = chat.participants.find((id) => id !== currentUser?.id);
     return people.data?.find((user) => String(user.id) === String(companionId));
   };
 
   const companion = !isGroupChat && chat ? getCompanion() : null;
 
   const lastMessageId = chatMessages.at(-1)?.id;
+  const lastMessageOwn = chatMessages.at(-1)?.authorId === currentUser?.id;
 
   const handleMessagesScroll = (event) => {
     const container = event.currentTarget;
@@ -199,10 +128,13 @@ function ChatContent() {
 
     if (!container) return;
 
-    stickToBottomRef.current = true;
-    container.scrollTop = container.scrollHeight;
-  }, [lastMessageId, chatState.loading]);
+    if (stickToBottomRef.current || lastMessageOwn) {
+      stickToBottomRef.current = true;
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [lastMessageId, lastMessageOwn, chatState.loading]);
 
+  if (!currentUser) return null;
   if (chatState.loading)
     return (
       <p className="status-message status-message--page" role="status">
@@ -318,142 +250,12 @@ function ChatContent() {
             {query ? "Сообщения не найдены" : "Нет сообщений"}
           </div>
         ) : (
-          chatMessages.map((msg) => {
-            const isOwn = String(msg.authorId) === String(currentUser.id);
-            const isRead =
-              isOwn && !msg.delivery &&
-              (chat.members || []).some(
-                (member) =>
-                  String(member.userId) !== String(msg.authorId) &&
-                  (member.lastReadSequence || 0) >= msg.sequence,
-              );
-            const author = isOwn
-              ? currentUser
-              : people.data?.find(
-                  (user) => String(user.id) === String(msg.authorId),
-                );
-            const authorName = author?.name || "Пользователь";
-
-            return (
-              <div
-                key={msg.id}
-                className={`chat__message ${isOwn ? "chat__message--own" : ""}`}
-              >
-                {!isOwn && (
-                  <div
-                    className="chat__message-avatar"
-                    style={{
-                      background: getUserColor(isOwn ? currentUser : author),
-                    }}
-                  >
-                    {authorName.charAt(0)}
-                    {author?.lastname?.charAt(0) || ""}
-                  </div>
-                )}
-                <div className="chat__message-content">
-                  {!isOwn && (
-                    <div className="chat__message-author">{authorName}</div>
-                  )}
-                  <div className="chat__message-bubble">
-                    {msg.content && (
-                      <div className="chat__message-text">{msg.content}</div>
-                    )}
-                    <Attachment
-                      file={attachmentsEnabled ? msg.attachment : null}
-                      onImageLoad={handleImageLoad}
-                    />
-                    <div className="chat__message-time">
-                      {new Date(msg.createdAt).toLocaleDateString("ru-RU", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-
-                      {msg.delivery && (
-                        <span className="chat__delivery" role="status">
-                          {msg.delivery === "sending" ? "Отправляется" : "Не отправлено"}
-                        </span>
-                      )}
-                      {isOwn && !msg.delivery && (
-                        <span
-                          className="chat__message-status"
-                          aria-label={
-                            isRead ? "Прочитано" : "Сообщение сохранено"
-                          }
-                          title={isRead ? "Прочитано" : "Сообщение сохранено"}
-                        >
-                          <img src={readed} alt="" />
-                          {isRead && <img src={readed} alt="" />}
-                        </span>
-                      )}
-                    </div>
-                    {msg.delivery === "failed" && (
-                      <div className="chat__delivery-error" role="alert">
-                        <span>{msg.deliveryError}</span>
-                        <button type="button" onClick={() => dispatch(retryMessage(msg.attempt_id))}>
-                          Повторить
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
+          <MessageRows rows={chatMessages} people={people.data} user={currentUser}
+            readThrough={readThrough} onImageLoad={handleImageLoad} />
         )}
       </div>
 
-      <form className="chat__input-form" onSubmit={handleSendMessage}>
-        <div className="chat__input-wrapper">
-          <button
-            type="button"
-            className="chat__input-attach"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={!attachmentsEnabled}
-          >
-            <img src={attach} alt="Прикрепить файл" />
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            disabled={!attachmentsEnabled}
-            style={{ display: "none" }}
-          />
-
-          <input
-            type="text"
-            ref={messageInputRef}
-            className="chat__input-field"
-            placeholder="Введите сообщение..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-          />
-
-          {filePreview && (
-            <div className="chat__input-file-preview">
-              <img src={attach} alt="" />
-              <span className="chat__input-file-name">{filePreview}</span>
-              <button
-                type="button"
-                className="chat__input-file-remove"
-                onClick={handleRemoveFile}
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="chat__input-send"
-            disabled={
-              !newMessage.trim() && !(attachmentsEnabled && file)
-            }
-          >
-            <img src={send} alt="Отправить" />
-          </button>
-        </div>
-      </form>
+      <ChatComposer chatId={chatId} />
 
       {groupsEnabled && isModalOpen && (
         <GroupInfoModal

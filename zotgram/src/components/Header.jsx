@@ -1,6 +1,6 @@
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { useChats } from "../api/hooks";
+import { useUnreadCount } from "../api/hooks";
 import logo from "../assets/images/logo.svg";
 import union from "../assets/images/union.svg";
 import house from "../assets/images/house.svg";
@@ -12,7 +12,7 @@ import getUserColor from "../utils/getUserColor";
 function Header({ onOpenModal }) {
   const { user } = useSelector((state) => state.user);
   const location = useLocation();
-  const chats = useChats();
+  const unreadCounts = useUnreadCount();
   const [params, setParams] = useSearchParams();
   const currentQuery = params.get("q") || "";
   const canSearch =
@@ -40,7 +40,6 @@ function Header({ onOpenModal }) {
     setParams(next);
   };
 
-  const unreadCounts = chats.unreadCount;
 
   return (
     <header className="header">

@@ -49,10 +49,11 @@ class PostSerializer(serializers.ModelSerializer):
         return data
 
 class CommentSerializer(serializers.ModelSerializer):
+    attempt_id = serializers.UUIDField(required=False, allow_null=True)
     userId = serializers.UUIDField(source='author_id', read_only=True)
     author = UserSerializer(read_only=True)
     date = serializers.DateTimeField(source='created_at', read_only=True)
 
     class Meta:
         model = Comment
-        fields = ['id', 'userId', 'author', 'text', 'date']
+        fields = ['id', 'userId', 'author', 'text', 'date', 'attempt_id']

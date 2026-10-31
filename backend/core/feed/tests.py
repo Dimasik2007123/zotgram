@@ -3,6 +3,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 from urllib.parse import urlsplit
+from uuid import uuid4
 from accounts.models import Department, Follow, User
 from .models import Post, Comment, Like
 
@@ -97,3 +98,48 @@ class ListQueryTests(TestCase):
             second = self.client.get(cursor.path + '?' + cursor.query)
             self.assertEqual(len(second.data['results']), 5)
             self.assertIsNone(second.data['next'])
+
+    def test_comment_retries_are_idempotent_and_return_current_counts(self):
+        path = f'/api/core/posts/{self.posts[0].pk}/comments/'
+        attempt = str(uuid4())
+        first = self.client.post(path, {'text':'Hello','attempt_id':attempt}, format='json')
+        second = self.client.post(path, {'text':'Hello','attempt_id':attempt}, format='json')
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.data['id'], second.data['id'])
+        self.assertEqual(first.data['attempt_id'], attempt)
+        self.assertEqual(second.data['commentsCount'], 26)
+        self.assertEqual(Comment.objects.filter(post=self.posts[0]).count(), 26)
+
+    def test_comment_attempts_are_scoped_to_post_and_author(self):
+        attempt = str(uuid4())
+        path = f'/api/core/posts/{self.posts[0].pk}/comments/'
+        first = self.client.post(path, {'text':'First','attempt_id':attempt}, format='json')
+        other_post = self.client.post(f'/api/core/posts/{self.posts[1].pk}/comments/',
+                                      {'text':'Other post','attempt_id':attempt}, format='json')
+        self.client.force_authenticate(user=self.authors[0])
+        other_author = self.client.post(path, {'text':'Other author','attempt_id':attempt}, format='json')
+        self.assertEqual(len({first.data['id'], other_post.data['id'], other_author.data['id']}), 3)
+
+    def test_old_clients_can_post_without_an_attempt_id(self):
+        path = f'/api/core/posts/{self.posts[0].pk}/comments/'
+        first = self.client.post(path, {'text':'Legacy'}, format='json')
+        second = self.client.post(path, {'text':'Legacy'}, format='json')
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        self.assertNotEqual(first.data['id'], second.data['id'])
+
+    def test_invalid_comment_attempt_does_not_create_a_comment(self):
+        response = self.client.post(f'/api/core/posts/{self.posts[0].pk}/comments/',
+                                    {'text':'Hello','attempt_id':'invalid'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Comment.objects.filter(post=self.posts[0]).count(), 25)
+
+    def test_comment_pages_report_authoritative_counts_and_attempts(self):
+        path = f'/api/core/posts/{self.posts[0].pk}/comments/'
+        attempt = str(uuid4())
+        created = self.client.post(path, {'text':'Hello','attempt_id':attempt}, format='json')
+        response = self.client.get(path)
+        self.assertEqual(response.data['commentsCount'], 26)
+        self.assertEqual(response.data['results'][0]['attempt_id'], attempt)
+        self.assertEqual(response.data['results'][0]['id'], created.data['id'])

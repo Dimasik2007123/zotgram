@@ -1,5 +1,6 @@
 import { useSelector } from "react-redux";
-import { Link, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { memo } from "react";
 
 import getUserColor from "../utils/getUserColor";
 import { usePeople, usePrivateFile } from "../api/hooks";
@@ -8,8 +9,7 @@ import fileIcon from "../assets/images/file.svg";
 import photoIcon from "../assets/images/photo.svg";
 import defaultGroup from "../assets/images/default-group.png";
 
-function ChatsListItem({ chat }) {
-  const { chatId } = useParams();
+function ChatsListItem({ chat, active }) {
   const isGroupChat = chat.type === "group";
   const currentUser = useSelector((state) => state.user.user);
   const lastMessage = chat.lastMessage;
@@ -19,7 +19,7 @@ function ChatsListItem({ chat }) {
   const avatar = usePrivateFile(chatAvatarUrl(chat));
 
   const getCompanion = () => {
-    const companionId = chat.participants.find((id) => id !== currentUser.id);
+    const companionId = chat.participants.find((id) => id !== currentUser?.id);
     return people.data?.find((user) => String(user.id) === String(companionId));
   };
 
@@ -60,7 +60,7 @@ function ChatsListItem({ chat }) {
     if (!lastMessage) return "Нет сообщений";
 
     const author =
-      String(lastMessage.authorId) === String(currentUser.id)
+      String(lastMessage.authorId) === String(currentUser?.id)
         ? currentUser
         : people.data?.find(
             (user) => String(user.id) === String(lastMessage.authorId),
@@ -68,7 +68,7 @@ function ChatsListItem({ chat }) {
     const authorName = author?.name || "Пользователь";
 
     const isOwnMessage =
-      String(lastMessage.authorId) === String(currentUser.id);
+      String(lastMessage.authorId) === String(currentUser?.id);
     const prefix = isOwnMessage ? "Вы: " : `${authorName}: `;
 
     const attachment = lastMessage.attachment;
@@ -94,7 +94,7 @@ function ChatsListItem({ chat }) {
   return (
     <Link
       to={`/chats/${chat.id}`}
-      className={`chats-list-item ${chatId === chat.id ? "chats-list-item--active" : ""}`}
+      className={`chats-list-item ${active ? "chats-list-item--active" : ""}`}
     >
       <div className="chats-list-item__avatar">
         {isGroupChat ? (
@@ -138,4 +138,4 @@ function ChatsListItem({ chat }) {
   );
 }
 
-export default ChatsListItem;
+export default memo(ChatsListItem);
